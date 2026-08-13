@@ -101,10 +101,10 @@ export function IntegrationStatus() {
           return (
             <div
               key={row.key}
-              className="flex items-start gap-3 rounded-lg border border-transparent px-2.5 py-2.5 transition-colors hover:border-skope-line hover:bg-white/2"
+              className="flex items-start gap-3 rounded-lg border border-transparent px-2.5 py-2.5 transition-colors hover:border-skope-line hover:bg-surface-sunken"
             >
               <span
-                className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-skope-line bg-white/3 text-muted-foreground"
+                className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border border-skope-line bg-surface-sunken text-muted-foreground"
                 aria-hidden
               >
                 <Icon className="size-4" />

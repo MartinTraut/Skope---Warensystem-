@@ -13,6 +13,7 @@ import {
   Panel,
   PageHeader,
 } from "@/components/skope/primitives"
+import { useRowNavigation } from "@/components/skope/row-link"
 import { MetricGridSkeleton, TableSkeleton } from "@/components/skope/skeletons"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
@@ -169,6 +170,8 @@ export function SalesView() {
 /* ------------------------------------------------------------------ */
 
 function SalesTable({ sales }: { sales: Sale[] }) {
+  const openRow = useRowNavigation()
+
   return (
     <>
       <div className="hidden overflow-x-auto lg:block">
@@ -187,14 +190,18 @@ function SalesTable({ sales }: { sales: Sale[] }) {
           </thead>
           <tbody className="divide-y divide-skope-line">
             {sales.map((sale) => (
-              <tr key={sale.id} className="transition-colors hover:bg-white/2">
+              <tr
+                key={sale.id}
+                onClick={(event) => openRow(`/scooters/${sale.scooterId}`, event)}
+                className="cursor-pointer transition-colors hover:bg-surface-sunken"
+              >
                 <td className="py-3 pr-3 pl-5 whitespace-nowrap text-muted-foreground">
                   {formatDate(sale.soldAt)}
                 </td>
                 <td className="px-3 py-3">
                   <Link
                     href={`/scooters/${sale.scooterId}`}
-                    className="rounded font-mono text-[0.8125rem] font-medium text-foreground transition-colors hover:text-skope-gold"
+                    className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-gold"
                   >
                     {sale.scooterNumber}
                   </Link>
@@ -237,7 +244,11 @@ function SalesTable({ sales }: { sales: Sale[] }) {
 
       <ul className="divide-y divide-skope-line lg:hidden">
         {sales.map((sale) => (
-          <li key={sale.id} className="px-4 py-4">
+          <li
+            key={sale.id}
+            onClick={(event) => openRow(`/scooters/${sale.scooterId}`, event)}
+            className="cursor-pointer px-4 py-4 transition-colors active:bg-surface-sunken"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link
@@ -273,7 +284,7 @@ function SalesTable({ sales }: { sales: Sale[] }) {
             <div className="mt-2.5">
               <SyncCell sale={sale} />
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
+            <p className="mt-2 type-caption text-muted-foreground">
               Kosten gesamt {formatCents(saleCostCents(sale))}
             </p>
           </li>

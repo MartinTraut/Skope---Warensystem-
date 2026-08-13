@@ -169,7 +169,7 @@ export function ScooterIdentity({
 }) {
   const content = (
     <>
-      <span className="block font-mono text-[0.8125rem] font-medium text-foreground group-hover:text-skope-gold">
+      <span className="block font-mono type-body-sm font-medium text-foreground group-hover:text-skope-gold">
         {scooter.scooterNumber}
       </span>
       <span className="mt-0.5 block truncate text-xs text-muted-foreground">

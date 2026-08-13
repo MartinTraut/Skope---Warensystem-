@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 function Bar({ className }: { className?: string }) {
   return (
     <div
-      className={cn("h-3 animate-pulse rounded bg-white/6", className)}
+      className={cn("h-3 animate-pulse rounded bg-surface-raised", className)}
       aria-hidden
     />
   )
@@ -55,7 +55,7 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
     <div className="space-y-4">
       {Array.from({ length: rows }, (_, index) => (
         <div key={index} className="flex gap-3">
-          <div className="mt-1 size-2 shrink-0 animate-pulse rounded-full bg-white/8" />
+          <div className="mt-1 size-2 shrink-0 animate-pulse rounded-full bg-surface-track" />
           <div className="min-w-0 flex-1">
             <Bar className="w-44" />
             <Bar className="mt-2 h-2.5 w-28" />

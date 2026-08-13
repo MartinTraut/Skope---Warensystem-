@@ -49,7 +49,7 @@ export function Field({
     <div className={cn("min-w-0", className)}>
       <label
         htmlFor={id}
-        className="mb-1.5 block text-[0.8125rem] font-medium text-foreground/90"
+        className="mb-1.5 block type-body-sm font-medium text-foreground/90"
       >
         {label}
         {required && <span className="ml-1 text-skope-gold">*</span>}
@@ -263,7 +263,7 @@ export function InlineSelect({
       <select
         className={cn(
           CONTROL_BASE,
-          "h-10 cursor-pointer appearance-none pr-9 text-[0.8125rem]"
+          "h-10 cursor-pointer appearance-none pr-9 type-body-sm"
         )}
         {...props}
       >
@@ -298,7 +298,7 @@ export function SearchInput({
       </svg>
       <input
         type="search"
-        className={cn(CONTROL_BASE, "h-10 pl-9 text-[0.8125rem]")}
+        className={cn(CONTROL_BASE, "h-10 pl-9 type-body-sm")}
         {...props}
       />
     </div>
@@ -352,8 +352,8 @@ export function ToggleRow({
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        "flex w-full items-center justify-between gap-4 rounded-lg border border-skope-line bg-white/2 px-3.5 py-3 text-left transition-colors duration-150",
-        "hover:border-skope-line-strong hover:bg-white/4",
+        "flex w-full items-center justify-between gap-4 rounded-lg border border-skope-line bg-surface-sunken px-3.5 py-3 text-left transition-colors duration-150",
+        "hover:border-skope-line-strong hover:bg-surface-raised",
         "focus-visible:border-skope-gold/50 focus-visible:ring-3 focus-visible:ring-skope-gold/15 focus-visible:outline-none",
         disabled && "cursor-not-allowed opacity-50",
         className

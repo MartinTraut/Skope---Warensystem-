@@ -5,6 +5,8 @@ import { toast } from "sonner"
 import { Plus, Sparkles, Trash2, Wrench } from "lucide-react"
 
 import { StatusPill } from "@/components/skope/status-pill"
+import { ConfirmDialog } from "@/components/skope/confirm-dialog"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { Modal } from "@/components/skope/modal"
 import {
   EmptyState,
@@ -15,16 +17,23 @@ import {
 import { InlineSelect, MoneyField, TextField } from "@/components/skope/form"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import { runAction } from "@/lib/data/run-action"
 import { getProblemChecks } from "@/lib/domain/inspection"
 import { formatCents, formatDate, formatMinutes, parseCents } from "@/lib/domain/money"
 import { repairCostsCents, totalLaborMinutes } from "@/lib/domain/metrics"
 import { REPAIR_STATUS_META } from "@/lib/domain/status"
-import { REPAIR_STATUSES, type RepairStatus, type Scooter } from "@/lib/domain/types"
+import {
+  REPAIR_STATUSES,
+  type Repair,
+  type RepairStatus,
+  type Scooter,
+} from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
 
 /** Reinigung, Reparaturen und Ersatzteile eines Scooters. */
 export function TabRefurbishment({ scooter }: { scooter: Scooter }) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<Repair | null>(null)
   const costs = repairCostsCents(scooter)
   const labor = totalLaborMinutes(scooter)
   const open = scooter.repairs.filter((repair) => repair.status !== "ERLEDIGT")
@@ -52,7 +61,7 @@ export function TabRefurbishment({ scooter }: { scooter: Scooter }) {
                     aria-hidden
                   />
                   <div className="min-w-0">
-                    <p className="text-[0.8125rem] font-medium text-foreground">
+                    <p className="type-body-sm font-medium text-foreground">
                       {problem.definition?.label ?? problem.key}
                     </p>
                     {problem.note && (
@@ -149,10 +158,13 @@ export function TabRefurbishment({ scooter }: { scooter: Scooter }) {
                           className="w-[8.5rem]"
                           value={repair.status}
                           onChange={(event) =>
-                            repositories.scooters.updateRepair(
-                              scooter.id,
-                              repair.id,
-                              { status: event.target.value as RepairStatus }
+                            runAction(
+                              repositories.scooters.updateRepair(
+                                scooter.id,
+                                repair.id,
+                                { status: event.target.value as RepairStatus }
+                              ),
+                              { failure: "Status nicht geändert" }
                             )
                           }
                           options={REPAIR_STATUSES.map((status) => ({
@@ -165,14 +177,12 @@ export function TabRefurbishment({ scooter }: { scooter: Scooter }) {
                         <button
                           type="button"
                           aria-label="Reparatur löschen"
-                          onClick={async () => {
-                            await repositories.scooters.removeRepair(
-                              scooter.id,
-                              repair.id
-                            )
-                            toast.info("Reparatur entfernt")
-                          }}
-                          className="grid size-10 place-items-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-state-error/10 hover:text-state-error"
+                          onClick={() => setPendingDelete(repair)}
+                          className={cn(
+                            "grid size-11 place-items-center rounded-lg text-muted-foreground/60 transition-colors",
+                            "hover:bg-state-error/10 hover:text-state-error",
+                            FOCUS_RING
+                          )}
                         >
                           <Trash2 className="size-4" />
                         </button>
@@ -203,7 +213,7 @@ export function TabRefurbishment({ scooter }: { scooter: Scooter }) {
                   {labor > 0 ? formatMinutes(labor) : "—"}
                 </span>
               </div>
-              <p className="pt-2 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="pt-2 type-caption leading-relaxed text-muted-foreground">
                 Die Ersatzteilkosten werden automatisch summiert und in der
                 Margenberechnung berücksichtigt. Arbeitszeit fließt derzeit nicht
                 monetär in die Marge ein.
@@ -217,6 +227,29 @@ export function TabRefurbishment({ scooter }: { scooter: Scooter }) {
         scooter={scooter}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title="Reparatur löschen?"
+        description={
+          <>
+            <span className="font-medium text-foreground">
+              {pendingDelete?.problem}
+            </span>{" "}
+            wird dauerhaft entfernt. Die hinterlegten Kosten fallen damit aus
+            der Margenrechnung heraus.
+          </>
+        }
+        onConfirm={async () => {
+          if (!pendingDelete) return
+          await runAction(
+            repositories.scooters.removeRepair(scooter.id, pendingDelete.id),
+            { success: "Reparatur entfernt", failure: "Reparatur nicht entfernt" }
+          )
+          setPendingDelete(null)
+        }}
       />
     </div>
   )
@@ -234,9 +267,10 @@ function CleaningPanel({
   locked: boolean
 }) {
   const done = scooter.cleaning.done
+  const [busy, setBusy] = useState(false)
 
   return (
-    <Panel accent={done}>
+    <Panel>
       <PanelBody>
         <div className="flex items-start gap-3">
           <span
@@ -244,7 +278,7 @@ function CleaningPanel({
               "grid size-9 shrink-0 place-items-center rounded-lg border",
               done
                 ? "border-state-ready/30 bg-state-ready/12 text-state-ready"
-                : "border-skope-line bg-white/3 text-muted-foreground"
+                : "border-skope-line bg-surface-sunken text-muted-foreground"
             )}
             aria-hidden
           >
@@ -264,9 +298,20 @@ function CleaningPanel({
           <Button
             variant={done ? "outline" : "default"}
             className="mt-4 h-10 w-full px-4"
+            disabled={busy}
             onClick={async () => {
-              await repositories.scooters.setCleaning(scooter.id, !done)
-              toast.success(done ? "Reinigung zurückgesetzt" : "Reinigung erledigt")
+              setBusy(true)
+              try {
+                await runAction(
+                  repositories.scooters.setCleaning(scooter.id, !done),
+                  {
+                    success: done ? "Reinigung zurückgesetzt" : "Reinigung erledigt",
+                    failure: "Reinigungsstatus nicht geändert",
+                  }
+                )
+              } finally {
+                setBusy(false)
+              }
             }}
           >
             {done ? "Zurücksetzen" : "Als gereinigt markieren"}
@@ -396,7 +441,7 @@ function RepairDialog({
           onChange={(event) => setMinutes(event.target.value)}
         />
         <div>
-          <p className="mb-1.5 text-[0.8125rem] font-medium text-foreground/90">
+          <p className="mb-1.5 type-body-sm font-medium text-foreground/90">
             Status
           </p>
           <InlineSelect

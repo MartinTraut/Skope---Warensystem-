@@ -7,11 +7,14 @@ import { useRef, useState } from "react"
 import { toast } from "sonner"
 import { ArrowLeft, ArrowRight, ImagePlus, Star, Trash2, Upload } from "lucide-react"
 
+import { ConfirmDialog } from "@/components/skope/confirm-dialog"
+import { FOCUS_RING, TOUCH_EXTEND } from "@/components/skope/focus"
 import { EmptyState, Panel, PanelBody, PanelHeader } from "@/components/skope/primitives"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import { runAction } from "@/lib/data/run-action"
 import { optimizeImageFile } from "@/lib/images/optimize"
-import type { Scooter } from "@/lib/domain/types"
+import type { Scooter, ScooterImage } from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
 
 /**
@@ -22,10 +25,24 @@ import { cn } from "@/lib/utils"
  * richtig, weil sie später genauso vor dem Upload nach Supabase Storage
  * stattfindet.
  */
+/** Nur echte Kameraformate. `image/*` ließe auch SVG durch. */
+const ACCEPTED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]
+const MAX_BYTES = 20_000_000
+const MAX_IMAGES = 12
+
 export function TabImages({ scooter }: { scooter: Scooter }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
+  /** ID des Bildes, dessen Aktion gerade läuft — sperrt Doppelklicks. */
+  const [busyImageId, setBusyImageId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<ScooterImage | null>(null)
 
   const images = [...scooter.images].sort((a, b) => a.sortOrder - b.sortOrder)
   const locked = scooter.saleStatus === "VERKAUFT"
@@ -33,32 +50,57 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
 
-    const accepted = Array.from(files).filter((file) =>
-      file.type.startsWith("image/")
-    )
+    const chosen = Array.from(files)
+    const accepted = chosen.filter((file) => ACCEPTED_TYPES.includes(file.type))
+    const wrongType = chosen.length - accepted.length
+
     if (accepted.length === 0) {
-      toast.error("Keine Bilddateien", {
-        description: "Es wurden nur Dateien ausgewählt, die keine Bilder sind.",
+      toast.error("Keine verwendbaren Bilddateien", {
+        description: "Erlaubt sind JPEG, PNG, WebP und HEIC.",
       })
       return
+    }
+    if (wrongType > 0) {
+      toast.warning(`${wrongType} Datei(en) übersprungen`, {
+        description: "Erlaubt sind JPEG, PNG, WebP und HEIC.",
+      })
+    }
+
+    const tooLarge = accepted.filter((file) => file.size > MAX_BYTES)
+    const usable = accepted.filter((file) => file.size <= MAX_BYTES)
+    if (tooLarge.length > 0) {
+      toast.warning(`${tooLarge.length} Datei(en) zu groß`, {
+        description: `Pro Bild sind höchstens ${MAX_BYTES / 1_000_000} MB möglich.`,
+      })
+    }
+    if (usable.length === 0) return
+
+    const remaining = MAX_IMAGES - images.length
+    if (remaining <= 0) {
+      toast.error("Höchstzahl erreicht", {
+        description: `Pro Scooter sind ${MAX_IMAGES} Bilder möglich.`,
+      })
+      return
+    }
+    const batch = usable.slice(0, remaining)
+    if (usable.length > remaining) {
+      toast.warning(`Nur ${remaining} Bild(er) übernommen`, {
+        description: `Pro Scooter sind insgesamt ${MAX_IMAGES} Bilder möglich.`,
+      })
     }
 
     setUploading(true)
     try {
-      const prepared = await Promise.all(
-        accepted.map(async (file) => ({
-          url: await optimizeImageFile(file),
-          name: file.name,
-        }))
-      )
-      const result = await repositories.scooters.addImages(scooter.id, prepared)
-      if (!result.ok) {
-        toast.error("Upload fehlgeschlagen", { description: result.message })
-        return
+      // Bewusst nacheinander statt parallel: Zwanzig 12-Megapixel-Fotos
+      // gleichzeitig zu dekodieren legt ein Tablet lahm.
+      const prepared: { url: string; name: string }[] = []
+      for (const file of batch) {
+        prepared.push({ url: await optimizeImageFile(file), name: file.name })
       }
-      toast.success(
-        `${prepared.length} Bild${prepared.length === 1 ? "" : "er"} hinzugefügt`
-      )
+      await runAction(repositories.scooters.addImages(scooter.id, prepared), {
+        success: `${prepared.length} Bild${prepared.length === 1 ? "" : "er"} hinzugefügt`,
+        failure: "Upload fehlgeschlagen",
+      })
     } catch (error) {
       // Der Fehler wird sichtbar gemacht statt still verschluckt.
       toast.error("Bild konnte nicht verarbeitet werden", {
@@ -78,7 +120,33 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
     if (target < 0 || target >= order.length) return
 
     ;[order[index], order[target]] = [order[target], order[index]]
-    await repositories.scooters.reorderImages(scooter.id, order)
+    setBusyImageId(imageId)
+    try {
+      await runAction(repositories.scooters.reorderImages(scooter.id, order), {
+        failure: "Reihenfolge konnte nicht geändert werden",
+      })
+    } finally {
+      setBusyImageId(null)
+    }
+  }
+
+  async function setPrimary(image: ScooterImage) {
+    setBusyImageId(image.id)
+    try {
+      await runAction(
+        repositories.scooters.setPrimaryImage(scooter.id, image.id),
+        { success: "Titelbild gesetzt", failure: "Titelbild nicht gesetzt" }
+      )
+    } finally {
+      setBusyImageId(null)
+    }
+  }
+
+  async function remove(image: ScooterImage) {
+    await runAction(repositories.scooters.removeImage(scooter.id, image.id), {
+      success: "Bild entfernt",
+      failure: "Bild konnte nicht entfernt werden",
+    })
   }
 
   return (
@@ -108,7 +176,7 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
           <input
             ref={inputRef}
             type="file"
-            accept="image/*"
+            accept={ACCEPTED_TYPES.join(",")}
             multiple
             className="sr-only"
             onChange={(event) => handleFiles(event.target.files)}
@@ -139,7 +207,7 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
                 "mb-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition-colors duration-200",
                 dragOver
                   ? "border-skope-gold/60 bg-skope-gold/8"
-                  : "border-skope-line-strong hover:border-skope-gold/35 hover:bg-white/2",
+                  : "border-skope-line-strong hover:border-skope-gold/35 hover:bg-surface-sunken",
                 "focus-visible:border-skope-gold/60 focus-visible:ring-3 focus-visible:ring-skope-gold/15 focus-visible:outline-none"
               )}
             >
@@ -196,14 +264,14 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
                       <div className="flex items-center gap-0.5">
                         <IconButton
                           label="Nach vorne"
-                          disabled={index === 0}
+                          disabled={index === 0 || busyImageId !== null}
                           onClick={() => move(image.id, -1)}
                         >
                           <ArrowLeft className="size-3.5" />
                         </IconButton>
                         <IconButton
                           label="Nach hinten"
-                          disabled={index === images.length - 1}
+                          disabled={index === images.length - 1 || busyImageId !== null}
                           onClick={() => move(image.id, 1)}
                         >
                           <ArrowRight className="size-3.5" />
@@ -213,13 +281,8 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
                         {!image.isPrimary && (
                           <IconButton
                             label="Als Titelbild setzen"
-                            onClick={async () => {
-                              await repositories.scooters.setPrimaryImage(
-                                scooter.id,
-                                image.id
-                              )
-                              toast.success("Titelbild gesetzt")
-                            }}
+                            disabled={busyImageId !== null}
+                            onClick={() => setPrimary(image)}
                           >
                             <Star className="size-3.5" />
                           </IconButton>
@@ -227,13 +290,8 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
                         <IconButton
                           label="Bild löschen"
                           destructive
-                          onClick={async () => {
-                            await repositories.scooters.removeImage(
-                              scooter.id,
-                              image.id
-                            )
-                            toast.info("Bild entfernt")
-                          }}
+                          disabled={busyImageId !== null}
+                          onClick={() => setPendingDelete(image)}
                         >
                           <Trash2 className="size-3.5" />
                         </IconButton>
@@ -246,6 +304,23 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
           )}
         </PanelBody>
       </Panel>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title="Bild löschen?"
+        description={
+          <>
+            Das Bild wird dauerhaft aus dem Datensatz entfernt. Bleibt danach
+            kein Bild übrig, verliert der Scooter seine Freigabe für die
+            Veröffentlichung.
+          </>
+        }
+        onConfirm={async () => {
+          if (pendingDelete) await remove(pendingDelete)
+          setPendingDelete(null)
+        }}
+      />
     </div>
   )
 }
@@ -272,9 +347,13 @@ function IconButton({
       onClick={onClick}
       className={cn(
         "grid size-8 place-items-center rounded-md text-muted-foreground transition-colors",
+        // Sichtbar klein, antippbar groß: das Pseudo-Element dehnt die
+        // Trefferfläche auf 44 px, ohne das Raster zu verschieben.
+        TOUCH_EXTEND,
+        FOCUS_RING,
         destructive
           ? "hover:bg-state-error/12 hover:text-state-error"
-          : "hover:bg-white/8 hover:text-foreground",
+          : "hover:bg-surface-track hover:text-foreground",
         disabled && "cursor-not-allowed opacity-30 hover:bg-transparent"
       )}
     >

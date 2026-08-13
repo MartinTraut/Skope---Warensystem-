@@ -124,7 +124,7 @@ export function DataField({ label, value, mono, className }: DataFieldProps) {
       <dd
         className={cn(
           "mt-1 truncate text-sm text-foreground",
-          mono && "font-mono text-[0.8125rem]"
+          mono && "font-mono type-body-sm"
         )}
       >
         {value}
@@ -172,7 +172,7 @@ export function EmptyState({
       )}
     >
       {icon && (
-        <div className="mb-4 grid size-11 place-items-center rounded-xl border border-skope-line bg-white/3 text-muted-foreground">
+        <div className="mb-4 grid size-11 place-items-center rounded-xl border border-skope-line bg-surface-sunken text-muted-foreground">
           {icon}
         </div>
       )}
@@ -206,7 +206,10 @@ export function DemoTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded border border-skope-gold/25 bg-skope-gold/8 px-1.5 py-0.5 text-[10px] font-medium tracking-[0.14em] text-skope-gold/90 uppercase",
+        // Bewusst neutral: Ein Meta-Hinweis trägt keine Handlung und soll
+        // dem Primärbutton und der Aktivnavigation den Goldakzent nicht
+        // streitig machen.
+        "inline-flex items-center rounded border border-skope-line-strong bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase",
         className
       )}
     >

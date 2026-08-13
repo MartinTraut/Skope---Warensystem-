@@ -43,3 +43,9 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Lokale Werkzeug-Einstellungen — gelten nur auf diesem Rechner
+.claude/settings.local.json
+
+# Abgelegte Screenshots im Projektwurzelverzeichnis
+/ChatGPT Image*.png

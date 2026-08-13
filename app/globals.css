@@ -23,6 +23,9 @@
     --color-skope-elevated: var(--skope-elevated);
     --color-skope-line: var(--skope-line);
     --color-skope-line-strong: var(--skope-line-strong);
+    --color-surface-sunken: var(--surface-sunken);
+    --color-surface-raised: var(--surface-raised);
+    --color-surface-track: var(--surface-track);
 
     /* Statusfarben */
     --color-state-neutral: var(--state-neutral);
@@ -90,29 +93,60 @@
     --skope-line: #1e2025;
     --skope-line-strong: #2a2d33;
 
-    /* Status */
-    --state-neutral: #8a9099;
-    --state-info: #7ea2c4;
-    --state-progress: #c8a45a;
-    --state-ready: #6fbf9b;
-    --state-live: #71b6d8;
-    --state-warn: #d8a657;
-    --state-error: #d97066;
-    --state-done: #8b93d8;
+    /*
+     * Flächen-Ebenen.
+     *
+     * Vorher lagen sechs undokumentierte Transluzenzstufen (bg-surface-sunken bis /8)
+     * quer im Projekt, teils für vergleichbare Elemente unterschiedlich. Drei
+     * benannte Ebenen ersetzen sie: eingelassen, angehoben, Balkenspur.
+     */
+    --surface-sunken: #ffffff05;
+    --surface-raised: #ffffff0a;
+    --surface-track: #ffffff12;
+
+    /*
+     * Bewegung. Zwei Dauern statt der bisherigen Spanne von 100 bis 500 ms:
+     * kurz für Farb- und Hover-Wechsel, mittel für Ein- und Ausblenden.
+     */
+    --motion-fast: 180ms;
+    --motion-base: 260ms;
+    --motion-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+    /*
+     * Status.
+     *
+     * Deutlich gesättigter als zuvor: Die Farben sind das schnellste
+     * Leseraster im Cockpit — "grün heißt frei, gelb heißt in Arbeit" muss
+     * aus zwei Metern Abstand funktionieren. Vorher lagen alle Töne so nah
+     * an Grau, dass sie im Dunkeln kaum auseinanderzuhalten waren.
+     */
+    --state-neutral: #9aa4b0;
+    --state-info: #3f9dff;
+    --state-progress: #e2b452;
+    --state-ready: #10d693;
+    --state-live: #12c9f2;
+    --state-warn: #ffb01f;
+    --state-error: #ff5b4e;
+    --state-done: #a87dff;
 
     /* shadcn Tokens */
     --background: #08090a;
-    --foreground: #e8eaed;
+    /* Heller als zuvor (#e8eaed): Fließtext auf Anthrazit war knapp lesbar. */
+    --foreground: #f1f3f6;
     --card: #0d0e10;
-    --card-foreground: #e8eaed;
+    --card-foreground: #f1f3f6;
     --popover: #121316;
-    --popover-foreground: #e8eaed;
+    --popover-foreground: #f1f3f6;
     --primary: #c8a45a;
     --primary-foreground: #14100a;
     --secondary: #191b1f;
     --secondary-foreground: #e8eaed;
     --muted: #16181c;
-    --muted-foreground: #8a9099;
+    /*
+     * Sekundärtext. Vorher #8a9099 — knapp über der Lesbarkeitsgrenze und in
+     * Tabellen mit vielen Zahlen anstrengend. Jetzt ~7:1 gegen die Panelfläche.
+     */
+    --muted-foreground: #a6aeb9;
     --accent: #1c1f24;
     --accent-foreground: #f2f4f6;
     --destructive: #d97066;
@@ -187,6 +221,19 @@
 }
 
 @layer components {
+    /*
+     * Überschriften stehen heller als Fließtext.
+     *
+     * Vorher trugen Titel, Beschreibung und Tabellenzelle denselben Ton —
+     * die Hierarchie lag allein in Größe und Gewicht und war auf einem
+     * dunklen Bildschirm kaum zu sehen.
+     */
+    .type-display,
+    .type-page-title,
+    .type-section {
+        color: #fafbfc;
+    }
+
     /* Fluid Type — skaliert mit dem Viewport, nie in harten Sprüngen. */
     .type-display {
         font-size: clamp(1.5rem, 1.1vw + 1.15rem, 2.125rem);
@@ -217,14 +264,33 @@
         font-variant-numeric: tabular-nums;
     }
 
+    /*
+     * Fließtextstufen.
+     *
+     * Vorher standen fünf konkurrierende Größen zwischen 10 und 14 px
+     * nebeneinander (type-body-sm, type-caption, text-[10px], text-xs,
+     * text-sm) — teils in derselben Komponente. Zwei benannte Stufen unter
+     * text-sm reichen aus und lassen sich zentral ändern.
+     */
+    .type-body-sm {
+        font-size: 0.8125rem;
+        line-height: 1.5;
+    }
+
+    .type-caption {
+        font-size: 0.75rem;
+        line-height: 1.45;
+    }
+
     /* Kleines Label über Werten — Cockpit-Anmutung. */
     .type-label {
         font-size: 0.6875rem;
         line-height: 1.2;
         letter-spacing: 0.09em;
         text-transform: uppercase;
-        font-weight: 500;
-        color: var(--muted-foreground);
+        font-weight: 600;
+        /* Eigener Ton: Labels sind Struktur, nicht Nebentext. */
+        color: #b4bcc8;
     }
 
     /* Karte mit metallischer Oberkante. Ohne Glassmorphism. */

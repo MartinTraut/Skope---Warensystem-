@@ -31,6 +31,12 @@ function delay(minMs: number, maxMs: number): Promise<void> {
 export interface MockControls {
   shouldFailShopify(): boolean
   shouldFailSheets(): boolean
+  /**
+   * Höchste bereits vergebene Zeilennummer der Umsatztabelle, aus dem
+   * persistierten Bestand gelesen. Steht für die echte Tabelle, die den
+   * Neustart der Anwendung überdauert.
+   */
+  highestSheetsRow?(): number
 }
 
 /* ------------------------------------------------------------------ */
@@ -216,7 +222,14 @@ export class MockGoogleSheetsAdapter implements SheetsAdapter {
   readonly displayName = "Google Sheets"
   readonly isMock = true
 
-  /** Merkt sich bereits geschriebene Verkäufe — verhindert Doppelzeilen. */
+  /**
+   * Merkt sich bereits geschriebene Verkäufe — verhindert Doppelzeilen.
+   *
+   * Die Karte allein reicht nicht: Sie lebt nur bis zum nächsten Neuladen,
+   * während die Verkäufe persistiert sind. Der belastbare Schlüssel ist
+   * deshalb `sale.sheetsRowNumber`; die Karte fängt nur Wiederholungen
+   * innerhalb derselben Sitzung ab.
+   */
   private readonly writtenRows = new Map<string, number>()
 
   constructor(private readonly controls: MockControls) {}
@@ -232,13 +245,20 @@ export class MockGoogleSheetsAdapter implements SheetsAdapter {
       )
     }
 
-    const existing = this.writtenRows.get(sale.id)
-    if (existing !== undefined) {
-      // Idempotenz: derselbe Verkauf landet nicht zweimal in der Tabelle.
-      return ok({ rowNumber: existing })
+    const known = sale.sheetsRowNumber ?? this.writtenRows.get(sale.id)
+    if (known !== undefined && known !== null) {
+      this.writtenRows.set(sale.id, known)
+      return ok({ rowNumber: known })
     }
 
-    const rowNumber = this.writtenRows.size + 2 // Zeile 1 ist die Kopfzeile
+    // Zeile 1 ist die Kopfzeile. Die höchste bereits vergebene Nummer kommt
+    // aus dem persistierten Bestand, nicht aus der Sitzungskarte.
+    const highest = Math.max(
+      1,
+      ...this.writtenRows.values(),
+      this.controls.highestSheetsRow?.() ?? 1
+    )
+    const rowNumber = highest + 1
     this.writtenRows.set(sale.id, rowNumber)
     return ok({ rowNumber })
   }

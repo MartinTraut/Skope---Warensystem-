@@ -52,6 +52,16 @@ function ShopifyCard({ scooter }: { scooter: Scooter }) {
   const published = listing.status === "VEROEFFENTLICHT"
   const failed = listing.status === "FEHLER"
   const sold = scooter.saleStatus === "VERKAUFT"
+  const adapterName = "Shopify"
+  /**
+   * Nach dem Verkauf sollen alle Kanäle stillgelegt sein. Schlägt das fehl,
+   * bleibt das Listing auf FEHLER oder VEROEFFENTLICHT stehen — dann muss die
+   * Reparatur hier möglich sein, statt sich hinter einem Hinweistext zu
+   * verstecken.
+   */
+  const stillActive =
+    listing.status !== "DEAKTIVIERT" &&
+    listing.status !== "NICHT_VEROEFFENTLICHT"
   const ready = isReadyForSale(scooter)
 
   async function run(
@@ -89,7 +99,7 @@ function ShopifyCard({ scooter }: { scooter: Scooter }) {
   }
 
   return (
-    <Panel accent={published}>
+    <Panel>
       <PanelHeader
         title={
           <span className="flex items-center gap-2">
@@ -127,10 +137,37 @@ function ShopifyCard({ scooter }: { scooter: Scooter }) {
         )}
 
         {sold ? (
-          <p className="text-xs text-muted-foreground">
-            Der Scooter ist verkauft. Das Angebot wurde deaktiviert und der
-            Bestand auf 0 gesetzt.
-          </p>
+          stillActive ? (
+            /*
+             * Der gefährlichste Zustand des Systems: verkauft, aber das
+             * Angebot steht noch. Genau hier verschwand bisher jede
+             * Schaltfläche — die Ware blieb kaufbar, obwohl sie weg war.
+             */
+            <div className="space-y-3">
+              <div className="flex gap-2.5 rounded-lg border border-state-error/35 bg-state-error/10 p-3">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-state-error" />
+                <p className="text-xs leading-relaxed text-foreground/90">
+                  Der Scooter ist verkauft, das Angebot auf {adapterName} ist
+                  aber noch aktiv. Es besteht die Gefahr eines Doppelverkaufs.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                className="h-11 w-full px-4"
+                disabled={busy !== null}
+                onClick={() => run("deactivate", "Deaktivierung")}
+              >
+                {busy === "deactivate"
+                  ? "Wird deaktiviert …"
+                  : "Angebot jetzt deaktivieren"}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Der Scooter ist verkauft. Das Angebot wurde deaktiviert und der
+              Bestand auf 0 gesetzt.
+            </p>
+          )
         ) : (
           <div className="flex flex-wrap gap-2">
             {!published && !failed && (
@@ -212,6 +249,9 @@ function KleinanzeigenCard({ scooter }: { scooter: Scooter }) {
 
   const published = listing.status === "VEROEFFENTLICHT"
   const sold = scooter.saleStatus === "VERKAUFT"
+  const stillActive =
+    listing.status !== "DEAKTIVIERT" &&
+    listing.status !== "NICHT_VEROEFFENTLICHT"
 
   async function toggle(next: "publish" | "deactivate") {
     setBusy(true)
@@ -243,7 +283,7 @@ function KleinanzeigenCard({ scooter }: { scooter: Scooter }) {
         action={<ListingBadge status={listing.status} size="sm" />}
       />
       <PanelBody className="space-y-4">
-        <p className="rounded-lg border border-skope-line bg-white/2 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+        <p className="rounded-lg border border-skope-line bg-surface-sunken px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
           Für Kleinanzeigen ist derzeit <strong>keine Schnittstelle bestätigt</strong>.
           Das Cockpit führt hier ausschließlich den internen Status — die Anzeige
           selbst wird im Kleinanzeigen-Konto von Hand erstellt und entfernt.
@@ -253,9 +293,30 @@ function KleinanzeigenCard({ scooter }: { scooter: Scooter }) {
         <ChannelFacts listing={listing} manual />
 
         {sold ? (
-          <p className="text-xs text-muted-foreground">
-            Der Scooter ist verkauft. Die Anzeige gilt als entfernt.
-          </p>
+          stillActive ? (
+            <div className="space-y-3">
+              <div className="flex gap-2.5 rounded-lg border border-state-warn/35 bg-state-warn/10 p-3">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-state-warn" />
+                <p className="text-xs leading-relaxed text-foreground/90">
+                  Der Scooter ist verkauft, die Anzeige steht im Cockpit aber
+                  noch auf aktiv. Bitte die Anzeige im Kleinanzeigen-Konto
+                  entfernen und hier nachziehen.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                className="h-11 w-full px-4"
+                disabled={busy}
+                onClick={() => toggle("deactivate")}
+              >
+                Als entfernt markieren
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Der Scooter ist verkauft. Die Anzeige gilt als entfernt.
+            </p>
+          )
         ) : (
           <div className="flex flex-wrap gap-2">
             {published ? (
@@ -338,7 +399,7 @@ function ChannelFacts({
         </>
       )}
       {!meta.automated && (
-        <p className="pt-1 text-[11px] text-muted-foreground">
+        <p className="pt-1 type-caption text-muted-foreground">
           Kein automatischer Abgleich möglich.
         </p>
       )}
@@ -389,6 +450,18 @@ function SimulateOrderButton({ scooter }: { scooter: Scooter }) {
       toast.error("Simulation nicht möglich", { description: result.message })
       return
     }
+
+    // Der Verkauf ist verbucht — das Reporting kann trotzdem gescheitert
+    // sein. Beides getrennt melden, statt pauschal Erfolg zu behaupten.
+    if (result.data.sheetsSyncStatus === "FEHLER") {
+      toast.warning("Verkauf verbucht, Reporting fehlgeschlagen", {
+        description:
+          `Scooter auf VERKAUFT, Bestand 0, Kanäle deaktiviert. ` +
+          `Die Umsatzzeile wurde nicht geschrieben: ${result.data.sheetsError ?? "unbekannter Fehler"}`,
+      })
+      return
+    }
+
     toast.success("Shopify-Bestellung verarbeitet", {
       description:
         "Scooter auf VERKAUFT, Bestand 0, Kanäle deaktiviert, Reporting synchronisiert.",

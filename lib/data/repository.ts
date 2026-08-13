@@ -12,16 +12,20 @@
 
 import type {
   Channel,
+  ColumnMapping,
   ImportBatch,
   InspectionResult,
+  IntegrationState,
   Repair,
   Sale,
+  CustomerSource,
   SaleChannel,
   Scooter,
   ScooterImage,
   WorkflowStatus,
 } from "@/lib/domain/types"
 import type { NewScooterInput } from "@/lib/domain/scooter-factory"
+import type { ParsedTable } from "@/lib/integrations/types"
 
 /** Einheitliches Ergebnis schreibender Operationen. */
 export type ActionResult<T = void> =
@@ -41,6 +45,12 @@ export function actionFail<T = void>(
 
 export interface MarkAsSoldInput {
   channel: SaleChannel
+  /** Woher der Kunde kam — Grundlage der Herkunftsauswertung. */
+  customerSource: CustomerSource
+  /** Ort oder PLZ des Käufers, freiwillig. */
+  customerRegion: string
+  /** Wo übergeben wurde (Lager, Versand, Filiale). */
+  saleLocation: string
   salePriceCents: number
   soldAt: string
   note: string
@@ -128,6 +138,28 @@ export interface ImportRepository {
     source: ImportBatch["source"]
     rows: NewScooterInput[]
   }): Promise<ActionResult<ImportBatch>>
+
+  /** Bestätigte Spaltenzuordnung sichern, damit Folge-Importe schneller gehen. */
+  saveMapping(mapping: ColumnMapping[]): Promise<ActionResult>
+
+  /** Beispiel-Lieferliste für den Demo-Modus. */
+  loadDemoTable(): Promise<ActionResult<ParsedTable>>
+}
+
+/**
+ * Systemeinstellungen und Datensicherung.
+ *
+ * Die Sicherung ist im Prototyp kein Komfort, sondern die einzige
+ * Ausstiegstür: Der gesamte Bestand hängt an einem Browserprofil. Dieselbe
+ * Exportdatei ist später der Eingang für die einmalige Übernahme nach
+ * Postgres.
+ */
+export interface SettingsRepository {
+  setIntegrationFlags(patch: Partial<IntegrationState>): Promise<ActionResult>
+  /** Vollständiger Abzug als JSON-Text, inklusive Versionsnummer. */
+  exportSnapshot(): Promise<ActionResult<{ fileName: string; json: string }>>
+  /** Spielt einen zuvor erzeugten Abzug wieder ein. Ersetzt den Bestand. */
+  importSnapshot(json: string): Promise<ActionResult<{ scooters: number; sales: number }>>
 }
 
 export interface DemoRepositoryExtras {
@@ -141,5 +173,6 @@ export interface Repositories {
   channels: ChannelRepository
   sales: SalesRepository
   imports: ImportRepository
+  settings: SettingsRepository
   demo: DemoRepositoryExtras
 }

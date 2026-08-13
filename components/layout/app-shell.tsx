@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -19,6 +19,7 @@ import { useCockpitStore } from "@/lib/store/cockpit-store"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DemoTag } from "@/components/skope/primitives"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { NewScooterDialog } from "@/components/scooters/new-scooter-dialog"
 
 /**
@@ -33,11 +34,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
 
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const openerRef = useRef<HTMLButtonElement>(null)
+
   // Auf dem Telefon darf der Hintergrund nicht mitscrollen.
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? "hidden" : ""
     return () => {
       document.body.style.overflow = ""
+    }
+  }, [drawerOpen])
+
+  // Fokus in den Drawer holen und beim Schließen zum Auslöser zurückgeben —
+  // sonst steht der Tastaturfokus hinter dem Overlay auf der verdeckten Seite.
+  useEffect(() => {
+    if (drawerOpen) {
+      drawerRef.current?.querySelector<HTMLElement>(
+        "a, button, [tabindex]:not([tabindex='-1'])"
+      )?.focus()
+    } else {
+      openerRef.current?.focus({ preventScroll: true })
     }
   }, [drawerOpen])
 
@@ -57,16 +73,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       </aside>
 
-      {/* Mobiler Drawer */}
+      {/*
+        Mobiler Drawer.
+
+        Bewusst als Dialog ausgezeichnet und mit Escape schließbar: Vorher war
+        es ein einfaches <div> ohne Rolle — Screenreader kündigten nichts an,
+        Escape tat nichts, und mit Tab lief man durch die verdeckte Seite.
+      */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setDrawerOpen(false)
+          }}
+        >
           <button
             type="button"
             aria-label="Navigation schließen"
             onClick={() => setDrawerOpen(false)}
             className="absolute inset-0 bg-black/70 backdrop-blur-[2px] duration-200 animate-in fade-in"
           />
-          <div className="absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col border-r border-skope-line bg-sidebar duration-300 animate-in slide-in-from-left">
+          <div
+            ref={drawerRef}
+            className="absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col border-r border-skope-line bg-sidebar duration-300 animate-in slide-in-from-left"
+          >
             <SidebarContent
               collapsed={false}
               onClose={() => setDrawerOpen(false)}
@@ -88,6 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <Topbar
+          openerRef={openerRef}
           onOpenDrawer={() => setDrawerOpen(true)}
           onCreate={() => setCreateOpen(true)}
         />
@@ -151,7 +185,11 @@ function SidebarContent({
             type="button"
             onClick={onClose}
             aria-label="Navigation schließen"
-            className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+            className={cn(
+              "grid size-11 place-items-center rounded-lg text-muted-foreground transition-colors",
+              "hover:bg-surface-raised hover:text-foreground",
+              FOCUS_RING
+            )}
           >
             <X className="size-5" />
           </button>
@@ -212,17 +250,17 @@ function SidebarContent({
           )}
         >
           <span
-            className="grid size-8 shrink-0 place-items-center rounded-full border border-skope-gold/30 bg-skope-gold/10 text-[11px] font-medium text-skope-gold"
+            className="grid size-8 shrink-0 place-items-center rounded-full border border-skope-gold/30 bg-skope-gold/10 type-caption font-medium text-skope-gold"
             aria-hidden
           >
             {user.initials}
           </span>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.8125rem] font-medium text-foreground">
+              <p className="truncate type-body-sm font-medium text-foreground">
                 {user.name}
               </p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="type-caption text-muted-foreground">
                 {user.role === "admin" ? "Administrator" : "Mitarbeiter"} ·
                 Demo-Konto
               </p>
@@ -236,7 +274,8 @@ function SidebarContent({
             onClick={onToggleCollapse}
             aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
             className={cn(
-              "mt-1 flex h-9 w-full items-center gap-3 rounded-lg px-3 text-[0.8125rem] text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground",
+              "mt-1 flex h-11 w-full items-center gap-3 rounded-lg px-3 type-body-sm text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground",
+              FOCUS_RING,
               collapsed && "justify-center px-0"
             )}
           >
@@ -275,13 +314,25 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
+      /*
+        Eingeklappt trägt der Link nur ein Symbol. Ohne Beschriftung liest ein
+        Screenreader gar nichts vor, und der Zähler wäre als reiner Punkt
+        ebenfalls verloren — deshalb beides hier zusammengefasst.
+      */
+      aria-label={
+        collapsed
+          ? badge && badge > 0
+            ? `${item.label}, ${badge} offen`
+            : item.label
+          : undefined
+      }
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex h-10 items-center gap-3 rounded-lg px-3 text-[0.875rem] transition-colors duration-150",
+        "group relative flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors duration-150",
         "focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none",
         active
           ? "bg-skope-gold/10 font-medium text-skope-gold"
-          : "text-sidebar-foreground hover:bg-white/5 hover:text-foreground",
+          : "text-sidebar-foreground hover:bg-surface-raised hover:text-foreground",
         collapsed && "justify-center px-0"
       )}
     >
@@ -300,7 +351,7 @@ function NavLink({
             "grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-medium tabular-nums",
             item.badge === "failedSyncs"
               ? "bg-state-error/15 text-state-error"
-              : "bg-white/8 text-muted-foreground"
+              : "bg-surface-track text-muted-foreground"
           )}
         >
           {badge}
@@ -328,9 +379,11 @@ function isActive(pathname: string, href: string) {
 /* ------------------------------------------------------------------ */
 
 function Topbar({
+  openerRef,
   onOpenDrawer,
   onCreate,
 }: {
+  openerRef: React.RefObject<HTMLButtonElement | null>
   onOpenDrawer: () => void
   onCreate: () => void
 }) {
@@ -341,9 +394,14 @@ function Topbar({
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-skope-line bg-background/85 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       <button
         type="button"
+        ref={openerRef}
         onClick={onOpenDrawer}
         aria-label="Navigation öffnen"
-        className="grid size-10 shrink-0 place-items-center rounded-lg border border-skope-line text-muted-foreground transition-colors hover:border-skope-line-strong hover:text-foreground lg:hidden"
+        className={cn(
+          "grid size-11 shrink-0 place-items-center rounded-lg border border-skope-line text-muted-foreground transition-colors",
+          "hover:border-skope-line-strong hover:text-foreground lg:hidden",
+          FOCUS_RING
+        )}
       >
         <Menu className="size-5" />
       </button>

@@ -51,6 +51,29 @@ export const SALE_CHANNELS = [
 ] as const
 export type SaleChannel = (typeof SALE_CHANNELS)[number]
 
+/**
+ * Woher kam der Kunde?
+ *
+ * Bewusst getrennt vom Verkaufskanal: Ein Kunde, der über Google auf die
+ * Website kommt und dort im Shop kauft, ist Kanal SHOPIFY und Herkunft
+ * GOOGLE — beides zusammen beantwortet erst, welche Werbung sich lohnt.
+ * Für Shopify-Bestellungen lässt sich die Herkunft später aus der
+ * Bestellung übernehmen; bei Telefon und Abholung bleibt sie eine Angabe
+ * des Verkäufers.
+ */
+export const CUSTOMER_SOURCES = [
+  "UNBEKANNT",
+  "WEBSITE",
+  "GOOGLE",
+  "KLEINANZEIGEN",
+  "SOCIAL_MEDIA",
+  "EMPFEHLUNG",
+  "STAMMKUNDE",
+  "LAUFKUNDSCHAFT",
+  "SONSTIGE",
+] as const
+export type CustomerSource = (typeof CUSTOMER_SOURCES)[number]
+
 export const INSPECTION_RESULTS = [
   "NICHT_GEPRUEFT",
   "BESTANDEN",
@@ -240,6 +263,12 @@ export interface Sale {
   modelLabel: string
   serialNumber: string
   channel: SaleChannel
+  /** Wie der Kunde auf SKOPE aufmerksam wurde. */
+  customerSource: CustomerSource
+  /** Ort oder PLZ des Käufers. Freiwillig — leer heißt „nicht erfasst". */
+  customerRegion: string
+  /** Standort, an dem das Gerät übergeben wurde (Lager, Versand, Filiale). */
+  saleLocation: string
   salePriceCents: number
   purchasePriceCents: number
   repairCostsCents: number
@@ -250,6 +279,12 @@ export interface Sale {
   sheetsSyncStatus: SyncStatus
   sheetsSyncedAt: string | null
   sheetsError: string | null
+  /**
+   * Bereits belegte Zeile in der Umsatztabelle. Wird mitgespeichert, damit ein
+   * Wiederholungsversuch nach einem Neuladen dieselbe Zeile aktualisiert und
+   * keine zweite anlegt.
+   */
+  sheetsRowNumber: number | null
   createdAt: string
 }
 

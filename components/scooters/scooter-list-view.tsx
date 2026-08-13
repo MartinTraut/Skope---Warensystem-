@@ -29,6 +29,7 @@ import {
   type Scooter,
   type WorkflowStatus,
 } from "@/lib/domain/types"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { cn } from "@/lib/utils"
 
 type SortKey = "updated" | "number" | "price" | "margin"
@@ -149,7 +150,8 @@ export function ScooterListView() {
               onClick={() => setFiltersOpen((value) => !value)}
               aria-expanded={filtersOpen}
               className={cn(
-                "flex h-10 items-center gap-2 rounded-lg border px-3 text-[0.8125rem] transition-colors lg:hidden",
+                "flex h-11 items-center gap-2 rounded-lg border px-3 type-body-sm transition-colors lg:hidden",
+                FOCUS_RING,
                 activeFilters > 0
                   ? "border-skope-gold/40 bg-skope-gold/8 text-skope-gold"
                   : "border-skope-line-strong text-muted-foreground hover:text-foreground"
@@ -215,7 +217,13 @@ export function ScooterListView() {
               <button
                 type="button"
                 onClick={resetFilters}
-                className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground"
+                className={cn(
+                  // Eigene Trefferfläche: als reiner Textlink war die
+                  // Schaltfläche am Tablet kaum zu treffen.
+                  "inline-flex min-h-11 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors",
+                  "hover:text-foreground",
+                  FOCUS_RING
+                )}
               >
                 <X className="size-3.5" />
                 Filter zurücksetzen

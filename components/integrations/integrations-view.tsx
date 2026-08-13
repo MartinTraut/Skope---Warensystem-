@@ -21,9 +21,9 @@ import {
   PageHeader,
 } from "@/components/skope/primitives"
 import { buttonVariants } from "@/components/ui/button"
-import { useCockpitStore } from "@/lib/store/cockpit-store"
 import type { StatusTone } from "@/lib/domain/status"
 import { DateTimeText } from "@/components/skope/client-time"
+import { repositories } from "@/lib/data/demo-repository"
 import { useIntegrationState, useSales, useScooters } from "@/hooks/use-cockpit"
 
 /**
@@ -35,7 +35,6 @@ import { useIntegrationState, useSales, useScooters } from "@/hooks/use-cockpit"
  */
 export function IntegrationsView() {
   const integrations = useIntegrationState()
-  const setIntegrations = useCockpitStore((state) => state.setIntegrations)
   const scooters = useScooters()
   const sales = useSales()
 
@@ -174,7 +173,7 @@ export function IntegrationsView() {
             description="Veröffentlichen, Aktualisieren und Deaktivieren schlagen fehl. Das Listing geht sichtbar auf FEHLER und lässt sich wiederholen."
             checked={integrations.simulateShopifyError}
             onCheckedChange={(checked) => {
-              setIntegrations({ simulateShopifyError: checked })
+              void repositories.settings.setIntegrationFlags({ simulateShopifyError: checked })
               toast[checked ? "warning" : "success"](
                 checked
                   ? "Shopify-Fehlersimulation aktiv"
@@ -187,7 +186,7 @@ export function IntegrationsView() {
             description="Verkaufszeilen werden nicht geschrieben. Der Verkauf bleibt trotzdem korrekt verbucht — nur das Reporting steht auf FEHLER."
             checked={integrations.simulateSheetsError}
             onCheckedChange={(checked) => {
-              setIntegrations({ simulateSheetsError: checked })
+              void repositories.settings.setIntegrationFlags({ simulateSheetsError: checked })
               toast[checked ? "warning" : "success"](
                 checked
                   ? "Sheets-Fehlersimulation aktiv"
@@ -272,7 +271,7 @@ function IntegrationCard({
           ))}
         </dl>
 
-        <div className="mt-auto rounded-lg border border-skope-line bg-white/2 p-3">
+        <div className="mt-auto rounded-lg border border-skope-line bg-surface-sunken p-3">
           <p className="type-label">Für den Produktivbetrieb nötig</p>
           <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
             {missing}

@@ -18,6 +18,7 @@ import type {
   InspectionResult,
   Scooter,
 } from "@/lib/domain/types"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { cn } from "@/lib/utils"
 
 /**
@@ -75,7 +76,7 @@ export function TabInspection({ scooter }: { scooter: Scooter }) {
 
   return (
     <div className="space-y-6">
-      <Panel accent={!completed && progress.checked > 0}>
+      <Panel>
         <PanelBody>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -132,10 +133,10 @@ export function TabInspection({ scooter }: { scooter: Scooter }) {
             </div>
           </div>
 
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/6">
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-raised">
             <div
               className={cn(
-                "h-full rounded-full transition-all duration-500",
+                "h-full rounded-full transition-[width] duration-300",
                 progress.problems > 0 ? "bg-state-warn" : "bg-skope-gold"
               )}
               style={{ width: `${progress.percent}%` }}
@@ -190,22 +191,17 @@ export function TabInspection({ scooter }: { scooter: Scooter }) {
                         />
                       </div>
 
-                      {/* Notizfeld nur dort, wo es gebraucht wird. */}
+                      {/*
+                        Sichtbar, sobald ein Mangel vorliegt ODER bereits Text
+                        erfasst wurde. Zuvor verschwand das Feld beim Umschalten
+                        auf "Bestanden" mitsamt der noch ungespeicherten
+                        Eingabe.
+                      */}
                       {(check?.result === "PROBLEM" || check?.note) && (
-                        <input
-                          type="text"
-                          defaultValue={check?.note ?? ""}
+                        <NoteField
+                          value={check?.note ?? ""}
                           disabled={locked}
-                          placeholder="Was genau ist das Problem?"
-                          onBlur={(event) =>
-                            setNote(definition.key, event.target.value)
-                          }
-                          className={cn(
-                            "mt-3 h-10 w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm",
-                            "text-foreground placeholder:text-muted-foreground/70",
-                            "focus:border-skope-gold/60 focus:ring-3 focus:ring-skope-gold/15 focus:outline-none",
-                            "disabled:opacity-60"
-                          )}
+                          onCommit={(note) => setNote(definition.key, note)}
                         />
                       )}
                     </li>
@@ -267,7 +263,7 @@ const OPTIONS: {
     value: "NICHT_GEPRUEFT",
     label: "Offen",
     icon: Minus,
-    active: "border-white/15 bg-white/8 text-foreground",
+    active: "border-white/15 bg-surface-track text-foreground",
   },
 ]
 
@@ -297,10 +293,11 @@ function ResultToggle({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-xs font-medium transition-all duration-150 sm:flex-none",
+              "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-xs font-medium transition-colors duration-200 sm:flex-none",
+              FOCUS_RING,
               active
                 ? option.active
-                : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+                : "text-muted-foreground hover:bg-surface-raised hover:text-foreground",
               disabled && "cursor-not-allowed opacity-50"
             )}
           >
@@ -310,5 +307,49 @@ function ResultToggle({
         )
       })}
     </div>
+  )
+}
+
+/**
+ * Notizfeld eines Prüfpunkts.
+ *
+ * Kontrolliert geführt und mit kurzer Verzögerung gespeichert: Vorher lag der
+ * Wert nur im DOM und wurde erst beim Verlassen des Feldes übernommen — wer
+ * eine Mängelbeschreibung tippte und direkt auf einen anderen Reiter wechselte,
+ * verlor sie ersatzlos.
+ */
+function NoteField({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: string
+  disabled: boolean
+  onCommit: (note: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  const [storedValue, setStoredValue] = useState(value)
+
+  // Änderung von außen (Reset, anderer Tab) übernehmen, ohne Effekt.
+  if (value !== storedValue) {
+    setStoredValue(value)
+    setDraft(value)
+  }
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      disabled={disabled}
+      placeholder="Was genau ist das Problem?"
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => draft !== value && onCommit(draft)}
+      className={cn(
+        "mt-3 h-11 w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm",
+        "text-foreground placeholder:text-muted-foreground/70",
+        "focus:border-skope-gold/60 focus:ring-3 focus:ring-skope-gold/15 focus:outline-none",
+        "disabled:opacity-60"
+      )}
+    />
   )
 }

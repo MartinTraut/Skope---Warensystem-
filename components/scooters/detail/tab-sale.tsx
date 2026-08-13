@@ -16,6 +16,8 @@ import {
 import { MoneyField } from "@/components/skope/form"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import type { ActionResult } from "@/lib/data/repository"
+import { runAction } from "@/lib/data/run-action"
 import { useSales } from "@/hooks/use-cockpit"
 import {
   centsToInput,
@@ -32,6 +34,21 @@ export function TabSale({ scooter }: { scooter: Scooter }) {
   const sales = useSales()
   const sale = sales.find((entry) => entry.scooterId === scooter.id)
   const [soldOpen, setSoldOpen] = useState(false)
+  // Sperrt die Schaltflächen für die Dauer eines Vorgangs — sonst löst ein
+  // zweiter Tap während der simulierten Latenz eine zweite Buchung aus.
+  const [busy, setBusy] = useState(false)
+
+  async function run<T>(
+    action: Promise<ActionResult<T>>,
+    messages: { success: string; failure: string }
+  ) {
+    setBusy(true)
+    try {
+      await runAction(action, messages)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (scooter.saleStatus === "VERKAUFT" && sale) {
     return (
@@ -70,7 +87,7 @@ export function TabSale({ scooter }: { scooter: Scooter }) {
             </DataGrid>
 
             {sale.note && (
-              <div className="mt-6 rounded-lg border border-skope-line bg-white/2 p-3.5">
+              <div className="mt-6 rounded-lg border border-skope-line bg-surface-sunken p-3.5">
                 <p className="type-label">Notiz</p>
                 <p className="mt-1.5 text-sm text-foreground/85">{sale.note}</p>
               </div>
@@ -94,16 +111,13 @@ export function TabSale({ scooter }: { scooter: Scooter }) {
             {sale.sheetsSyncStatus === "FEHLER" && (
               <Button
                 className="h-10 w-full px-4"
-                onClick={async () => {
-                  const result = await repositories.sales.retrySheetsSync(sale.id)
-                  if (!result.ok) {
-                    toast.error("Synchronisation erneut fehlgeschlagen", {
-                      description: result.message,
-                    })
-                    return
-                  }
-                  toast.success("Google Sheets synchronisiert")
-                }}
+                disabled={busy}
+                onClick={() =>
+                  run(repositories.sales.retrySheetsSync(sale.id), {
+                    success: "Google Sheets synchronisiert",
+                    failure: "Synchronisation erneut fehlgeschlagen",
+                  })
+                }
               >
                 Erneut versuchen
               </Button>
@@ -131,17 +145,13 @@ export function TabSale({ scooter }: { scooter: Scooter }) {
               <Button
                 variant="outline"
                 className="h-10 w-full gap-2 px-4"
-                onClick={async () => {
-                  const result = await repositories.scooters.updateSaleStatus(
-                    scooter.id,
-                    "RESERVIERT"
+                disabled={busy}
+                onClick={() =>
+                  run(
+                    repositories.scooters.updateSaleStatus(scooter.id, "RESERVIERT"),
+                    { success: "Scooter reserviert", failure: "Nicht reserviert" }
                   )
-                  if (!result.ok) {
-                    toast.error("Nicht reserviert", { description: result.message })
-                    return
-                  }
-                  toast.success("Scooter reserviert")
-                }}
+                }
               >
                 <BookmarkCheck className="size-4" />
                 Reservieren
@@ -150,13 +160,16 @@ export function TabSale({ scooter }: { scooter: Scooter }) {
               <Button
                 variant="outline"
                 className="h-10 w-full gap-2 px-4"
-                onClick={async () => {
-                  await repositories.scooters.updateSaleStatus(
-                    scooter.id,
-                    "VERFUEGBAR"
+                disabled={busy}
+                onClick={() =>
+                  run(
+                    repositories.scooters.updateSaleStatus(scooter.id, "VERFUEGBAR"),
+                    {
+                      success: "Reservierung aufgehoben",
+                      failure: "Reservierung konnte nicht aufgehoben werden",
+                    }
                   )
-                  toast.success("Reservierung aufgehoben")
-                }}
+                }
               >
                 <BookmarkX className="size-4" />
                 Reservierung aufheben
@@ -170,7 +183,7 @@ export function TabSale({ scooter }: { scooter: Scooter }) {
               Als verkauft markieren
             </Button>
 
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
+            <p className="type-caption leading-relaxed text-muted-foreground">
               Der Verkauf wird zentral erfasst — unabhängig davon, über welchen
               Kanal er zustande kam. Anschließend werden alle Kanäle deaktiviert.
             </p>

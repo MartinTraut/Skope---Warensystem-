@@ -109,11 +109,34 @@ export function parseDelimitedText(
 
   const dataRows = rows.slice(1).map((cells) =>
     Object.fromEntries(
-      headers.map((header, index) => [header, (cells[index] ?? "").trim()])
+      headers.map((header, index) => [
+        header,
+        neutralizeFormula((cells[index] ?? "").trim()),
+      ])
     )
   )
 
   return { fileName: options.fileName, headers, rows: dataRows }
+}
+
+/**
+ * Entschärft Zellen, die in einer Tabellenkalkulation als Formel gelesen
+ * würden.
+ *
+ * Ein Lieferant kann in einer Bemerkungsspalte `=IMPORTXML(...)` liefern.
+ * Der Wert wandert bei uns über Hersteller, Modell und Notiz bis in die
+ * Google-Umsatztabelle und würde dort ausgewertet — mit Zugriff auf fremde
+ * Domains. Deshalb wird das führende Zeichen hier einmal zentral neutralisiert,
+ * bevor der Wert überhaupt ins System gelangt.
+ *
+ * Der echte Sheets-Adapter muss zusätzlich `valueInputOption: "RAW"` setzen.
+ */
+export function neutralizeFormula(value: string): string {
+  if (!/^[=+\-@\t\r]/.test(value)) return value
+  // Ein negativer Betrag ist keine Formel — sonst wären Gutschriften und
+  // Minusmengen in Lieferantenlisten nicht mehr lesbar.
+  if (/^-?[\d.,\s]+$/.test(value)) return value
+  return `'${value}`
 }
 
 export async function parseFile(file: File): Promise<ParsedTable> {

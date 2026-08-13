@@ -22,12 +22,12 @@ import {
   PageHeader,
 } from "@/components/skope/primitives"
 import { StatusPill } from "@/components/skope/status-pill"
+import { ConfirmDialog } from "@/components/skope/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import { runAction } from "@/lib/data/run-action"
 import { useSavedMapping, useScooters } from "@/hooks/use-cockpit"
-import { useCockpitStore } from "@/lib/store/cockpit-store"
 import { parseFile, suggestMapping } from "@/lib/integrations/csv"
-import { MockAvidesImportSource } from "@/lib/integrations/mock-adapters"
 import type { ParsedTable } from "@/lib/integrations/types"
 import { formatCents, parseCents } from "@/lib/domain/money"
 import { findBySerial, normalizeSerial } from "@/lib/domain/scooter-factory"
@@ -90,7 +90,6 @@ export function ImportWizard() {
   const router = useRouter()
   const scooters = useScooters()
   const savedMapping = useSavedMapping()
-  const setSavedMapping = useCockpitStore((state) => state.setSavedMapping)
 
   const [step, setStep] = useState<StepKey>("file")
   const [table, setTable] = useState<ParsedTable | null>(null)
@@ -100,6 +99,7 @@ export function ImportWizard() {
   )
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
   const [result, setResult] = useState<{
     imported: number
     skipped: number
@@ -143,8 +143,10 @@ export function ImportWizard() {
   async function loadDemo() {
     setLoading(true)
     try {
-      const demo = await new MockAvidesImportSource().loadDemoTable()
-      applyTable(demo, "AVIDES_DEMO")
+      const demo = await runAction(repositories.imports.loadDemoTable(), {
+        failure: "Beispieldatei konnte nicht geladen werden",
+      })
+      if (demo) applyTable(demo, "AVIDES_DEMO")
     } finally {
       setLoading(false)
     }
@@ -197,7 +199,7 @@ export function ImportWizard() {
       return
     }
 
-    setSavedMapping(
+    void repositories.imports.saveMapping(
       IMPORT_TARGET_FIELDS.map((target) => ({ target, source: mapping[target] }))
     )
     setResult({
@@ -232,6 +234,18 @@ export function ImportWizard() {
 
       <StepIndicator current={step} />
 
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        title="Andere Datei wählen?"
+        description="Die geladene Datei und die bestätigte Spaltenzuordnung werden verworfen. Bereits importierte Scooter bleiben erhalten."
+        confirmLabel="Verwerfen"
+        onConfirm={() => {
+          restart()
+          setDiscardOpen(false)
+        }}
+      />
+
       {step === "file" && (
         <FileStep
           loading={loading}
@@ -247,7 +261,7 @@ export function ImportWizard() {
           mapping={mapping}
           onChange={setMapping}
           missingRequired={missingRequired}
-          onBack={restart}
+          onBack={() => setDiscardOpen(true)}
           onNext={() => setStep("preview")}
         />
       )}
@@ -295,14 +309,18 @@ function StepIndicator({ current }: { current: StepKey }) {
         const done = index < currentIndex
         const active = index === currentIndex
         return (
-          <li key={step.key} className="flex shrink-0 items-center gap-1">
+          <li
+            key={step.key}
+            className="flex shrink-0 items-center gap-1"
+            aria-current={active ? "step" : undefined}
+          >
             <div
               className={cn(
-                "flex h-9 items-center gap-2 rounded-lg border px-3 text-[0.8125rem] transition-colors",
+                "flex h-9 items-center gap-2 rounded-lg border px-3 type-body-sm transition-colors",
                 active
                   ? "border-skope-gold/40 bg-skope-gold/10 font-medium text-skope-gold"
                   : done
-                    ? "border-skope-line bg-white/3 text-foreground/70"
+                    ? "border-skope-line bg-surface-sunken text-foreground/70"
                     : "border-skope-line text-muted-foreground/60"
               )}
             >
@@ -313,7 +331,7 @@ function StepIndicator({ current }: { current: StepKey }) {
                     ? "bg-skope-gold text-[#14100a]"
                     : done
                       ? "bg-state-ready/20 text-state-ready"
-                      : "bg-white/8 text-muted-foreground"
+                      : "bg-surface-track text-muted-foreground"
                 )}
               >
                 {done ? <Check className="size-2.5" strokeWidth={3} /> : index + 1}
@@ -389,7 +407,7 @@ function FileStep({
               "flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-12 text-center transition-colors duration-200",
               dragOver
                 ? "border-skope-gold/60 bg-skope-gold/8"
-                : "border-skope-line-strong hover:border-skope-gold/35 hover:bg-white/2",
+                : "border-skope-line-strong hover:border-skope-gold/35 hover:bg-surface-sunken",
               "focus-visible:border-skope-gold/60 focus-visible:ring-3 focus-visible:ring-skope-gold/15 focus-visible:outline-none"
             )}
           >
@@ -437,7 +455,7 @@ function FileStep({
           >
             {loading ? "Wird geladen …" : "Demo-Datei verwenden"}
           </Button>
-          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-3 type-caption leading-relaxed text-muted-foreground">
             Die Spaltennamen der Demo-Datei sind ein Beispiel und nirgends im
             Code fest verdrahtet. Das echte Avides-Format wird beim ersten
             realen Export festgelegt.
@@ -499,7 +517,7 @@ function MappingStep({
 
             return (
               <div key={field} className="min-w-0">
-                <label className="mb-1.5 flex items-center gap-1 text-[0.8125rem] font-medium text-foreground/90">
+                <label className="mb-1.5 flex items-center gap-1 type-body-sm font-medium text-foreground/90">
                   {FIELD_LABELS[field]}
                   {required && <span className="text-skope-gold">*</span>}
                 </label>
@@ -569,7 +587,7 @@ function PreviewStep({
               <tr
                 key={row.index}
                 className={cn(
-                  "transition-colors hover:bg-white/2",
+                  "transition-colors hover:bg-surface-sunken",
                   row.issues.length > 0 && "bg-state-error/4"
                 )}
               >
@@ -916,6 +934,43 @@ function buildRows(
       issues.push({ reason: "Modell fehlt.", severity: "error" })
     }
 
+    // Ein unlesbarer Preis darf nicht still zu 0 € werden — die Marge wäre
+    // danach dauerhaft um den Einkaufspreis zu hoch, ohne jede Spur.
+    const rawPurchase = get("purchasePriceCents")
+    const purchaseCents = parseCents(rawPurchase)
+    if (rawPurchase !== "" && purchaseCents === null) {
+      issues.push({
+        reason: `Einkaufspreis „${rawPurchase}" ist nicht lesbar — wird als 0 € übernommen.`,
+        severity: "warning",
+      })
+    }
+
+    const rawSale = get("salePriceCents")
+    const saleCents = parseCents(rawSale)
+    if (rawSale !== "" && saleCents === null) {
+      issues.push({
+        reason: `Verkaufspreis „${rawSale}" ist nicht lesbar — bleibt leer.`,
+        severity: "warning",
+      })
+    }
+
+    const rawMileage = get("mileageKm")
+    const mileageKm = Number.parseInt(rawMileage.replace(/\D/g, ""), 10)
+    if (rawMileage !== "" && Number.isNaN(mileageKm)) {
+      issues.push({
+        reason: `Laufleistung „${rawMileage}" ist nicht lesbar — wird als 0 km übernommen.`,
+        severity: "warning",
+      })
+    }
+
+    const rawDate = get("purchaseDate")
+    if (rawDate !== "" && !isReadableDate(rawDate)) {
+      issues.push({
+        reason: `Einkaufsdatum „${rawDate}" ist nicht lesbar — es wird das heutige Datum gesetzt.`,
+        severity: "warning",
+      })
+    }
+
     return {
       index: index + 1,
       issues,
@@ -926,11 +981,11 @@ function buildRows(
         variant: get("variant"),
         color: get("color"),
         notes: get("notes"),
-        mileageKm: Number.parseInt(get("mileageKm").replace(/\D/g, ""), 10) || 0,
-        purchasePriceCents: parseCents(get("purchasePriceCents")) ?? 0,
-        salePriceCents: parseCents(get("salePriceCents")),
+        mileageKm: Number.isNaN(mileageKm) ? 0 : mileageKm,
+        purchasePriceCents: purchaseCents ?? 0,
+        salePriceCents: saleCents,
         condition: mapCondition(get("condition")),
-        purchaseDate: parseGermanDate(get("purchaseDate")),
+        purchaseDate: parseGermanDate(rawDate),
       },
     }
   })
@@ -947,6 +1002,12 @@ function mapCondition(raw: string): Condition {
   if (["C", "GUT"].includes(value)) return "GUT"
   if (["D", "DEFEKT"].includes(value)) return "DEFEKT"
   return "GEBRAUCHT"
+}
+
+function isReadableDate(raw: string): boolean {
+  const value = raw.trim()
+  if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value)) return true
+  return !Number.isNaN(new Date(value).getTime())
 }
 
 /** Akzeptiert "02.08.2026" und "2026-08-02". Sonst: heute. */

@@ -13,8 +13,13 @@
  *    Genau das verhindert den Doppelverkauf über zwei Kanäle.
  */
 
-import { createSeedData } from "@/lib/demo/seed"
-import { modelLabel } from "@/lib/domain/status"
+import {
+  canTransition,
+  evaluateReadiness,
+  isReadyForSale,
+  modelLabel,
+  WORKFLOW_META,
+} from "@/lib/domain/status"
 import { repairCostsCents } from "@/lib/domain/metrics"
 import {
   createId,
@@ -27,9 +32,11 @@ import type {
   AuditCategory,
   AuditEvent,
   Channel,
+  ColumnMapping,
   ImportBatch,
   ImportIssue,
   InspectionResult,
+  IntegrationState,
   Listing,
   Repair,
   Sale,
@@ -39,11 +46,13 @@ import type {
 } from "@/lib/domain/types"
 import {
   ManualKleinanzeigenAdapter,
+  MockAvidesImportSource,
   MockGoogleSheetsAdapter,
   MockShopifyAdapter,
 } from "@/lib/integrations/mock-adapters"
 import type { MarketplaceAdapter } from "@/lib/integrations/types"
-import { getCockpitState } from "@/lib/store/cockpit-store"
+import { dataUrlBytes } from "@/lib/images/optimize"
+import { getCockpitState, SNAPSHOT_VERSION } from "@/lib/store/cockpit-store"
 import {
   actionFail,
   actionOk,
@@ -55,7 +64,38 @@ import {
   type Repositories,
   type SalesRepository,
   type ScooterRepository,
+  type SettingsRepository,
 } from "./repository"
+
+/* ------------------------------------------------------------------ */
+/* Speichergrenze des Prototyps                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Obergrenze für den gesamten gespeicherten Stand.
+ *
+ * Browser geben rund 5 MB je Origin frei. 4 MB lassen Luft für den Vorgang,
+ * der gerade läuft — eine Grenze, die erst beim Schreiben zuschlägt, ist
+ * keine Grenze, sondern ein Datenverlust.
+ */
+const IMAGE_BUDGET_BYTES = 4_000_000
+
+function estimateStoredBytes(): number {
+  const state = getCockpitState()
+  // Nur die Bilder zählen; alles andere liegt zusammen im niedrigen
+  // Kilobyte-Bereich und würde die Schätzung nur teuer machen.
+  return state.scooters.reduce(
+    (sum, scooter) =>
+      sum +
+      scooter.images.reduce((inner, image) => inner + dataUrlBytes(image.url), 0),
+    0
+  )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`
+  return `${Math.round(bytes / 1000)} KB`
+}
 
 /* ------------------------------------------------------------------ */
 /* Adapter-Instanzen                                                   */
@@ -64,6 +104,11 @@ import {
 const mockControls = {
   shouldFailShopify: () => getCockpitState().integrations.simulateShopifyError,
   shouldFailSheets: () => getCockpitState().integrations.simulateSheetsError,
+  highestSheetsRow: () =>
+    getCockpitState().sales.reduce(
+      (max, sale) => Math.max(max, sale.sheetsRowNumber ?? 1),
+      1
+    ),
 }
 
 const shopifyAdapter = new MockShopifyAdapter(mockControls)
@@ -198,6 +243,19 @@ class DemoScooterRepository implements ScooterRepository {
     const before = requireScooter(id)
     if (!before) return actionFail<Scooter>("Scooter nicht gefunden.")
 
+    // Dieselbe Dublettenprüfung wie beim Anlegen: Sonst ließe sich eine
+    // bereits vergebene Seriennummer über den Bearbeiten-Dialog ein zweites
+    // Mal ins System bringen.
+    if (patch.serialNumber && patch.serialNumber !== before.serialNumber) {
+      const duplicate = findBySerial(store().scooters, patch.serialNumber)
+      if (duplicate && duplicate.id !== id) {
+        return actionFail<Scooter>(
+          `Seriennummer ist bereits als ${duplicate.scooterNumber} erfasst.`,
+          true
+        )
+      }
+    }
+
     const result = mutate(id, (scooter) => ({ ...scooter, ...patch }))
     if (result.ok) {
       log({
@@ -216,6 +274,31 @@ class DemoScooterRepository implements ScooterRepository {
     if (before.saleStatus === "VERKAUFT" && status !== "ARCHIVIERT") {
       return actionFail<Scooter>(
         "Ein verkaufter Scooter kann nicht zurück in den Warenprozess.",
+        true
+      )
+    }
+
+    // Die Übergangsregeln aus dem Fachmodell gelten hier, nicht erst in der
+    // Oberfläche: Sonst ließe sich ein frisch eingegangener Scooter per
+    // Auswahlfeld direkt auf "verkaufsbereit" setzen und die Freigabeprüfung
+    // wäre wirkungslos.
+    if (
+      before.workflowStatus !== status &&
+      !canTransition(before.workflowStatus, status)
+    ) {
+      return actionFail<Scooter>(
+        `Der Übergang von ${WORKFLOW_META[before.workflowStatus].label} nach ` +
+          `${WORKFLOW_META[status].label} ist nicht vorgesehen.`,
+        true
+      )
+    }
+
+    if (status === "VERKAUFSBEREIT" && !isReadyForSale(before)) {
+      const offen = evaluateReadiness(before)
+        .filter((check) => !check.ok)
+        .map((check) => check.label)
+      return actionFail<Scooter>(
+        `${before.scooterNumber} ist noch nicht verkaufsbereit. Offen: ${offen.join(", ")}.`,
         true
       )
     }
@@ -300,6 +383,9 @@ class DemoScooterRepository implements ScooterRepository {
       modelLabel: modelLabel(scooter),
       serialNumber: scooter.serialNumber,
       channel: input.channel,
+      customerSource: input.customerSource,
+      customerRegion: input.customerRegion.trim(),
+      saleLocation: input.saleLocation.trim() || scooter.location,
       salePriceCents: input.salePriceCents,
       purchasePriceCents: scooter.purchasePriceCents,
       repairCostsCents: repairCosts,
@@ -309,6 +395,7 @@ class DemoScooterRepository implements ScooterRepository {
       sheetsSyncStatus: "WARTET",
       sheetsSyncedAt: null,
       sheetsError: null,
+      sheetsRowNumber: null,
       createdAt: new Date().toISOString(),
     }
 
@@ -516,6 +603,30 @@ class DemoScooterRepository implements ScooterRepository {
     id: string,
     images: Omit<ScooterImage, "id" | "createdAt" | "sortOrder" | "isPrimary">[]
   ) {
+    /*
+     * Speicherprüfung vor dem Schreiben.
+     *
+     * Der Browserspeicher fasst rund 5 MB. Ohne diese Prüfung nimmt die
+     * Oberfläche den Upload an, meldet Erfolg — und nach dem Neuladen sind
+     * die Bilder weg, weil der Schreibvorgang am Kontingent gescheitert ist.
+     * Lieber vorher ehrlich ablehnen. Mit Supabase Storage entfällt die
+     * Grenze; dann bleibt hier nur eine großzügige Obergrenze stehen.
+     */
+    const incoming = images.reduce(
+      (sum, image) => sum + dataUrlBytes(image.url),
+      0
+    )
+    const used = estimateStoredBytes()
+    if (used + incoming > IMAGE_BUDGET_BYTES) {
+      const frei = Math.max(0, IMAGE_BUDGET_BYTES - used)
+      return actionFail<Scooter>(
+        `Der Browserspeicher reicht nicht: ${formatBytes(incoming)} sollen dazu, ` +
+          `frei sind noch ${formatBytes(frei)}. Lade eine Sicherung herunter und ` +
+          `entferne Bilder älterer Vorgänge, oder verwende weniger Fotos.`,
+        true
+      )
+    }
+
     const result = mutate(id, (scooter) => {
       const startIndex = scooter.images.length
       const added: ScooterImage[] = images.map((image, offset) => ({
@@ -706,6 +817,16 @@ async function runPublish(
     )
   }
 
+  if (mode === "publish" && !isReadyForSale(scooter)) {
+    const offen = evaluateReadiness(scooter)
+      .filter((check) => !check.ok)
+      .map((check) => check.label)
+    return actionFail<Scooter>(
+      `${scooter.scooterNumber} ist noch nicht freigegeben. Offen: ${offen.join(", ")}.`,
+      true
+    )
+  }
+
   const adapter = ADAPTERS[channel]
 
   store().updateScooter(scooterId, (current) =>
@@ -734,6 +855,38 @@ async function runPublish(
       level: "error",
     })
     return actionFail<Scooter>(response.error.message)
+  }
+
+  // Zwischen Aufruf und Antwort liegen bei Shopify bis zu anderthalb
+  // Sekunden. Wurde der Scooter in dieser Zeit verkauft — zweiter Tab,
+  // eingehende Bestellung, Verkaufsdialog —, darf die verspätete Antwort das
+  // Angebot nicht wieder scharf schalten. Deshalb wird der Zustand nach dem
+  // await erneut geprüft, nicht der vor dem await gelesene verwendet.
+  const after = requireScooter(scooterId)
+  if (!after) return actionFail<Scooter>("Scooter nicht gefunden.")
+
+  if (after.saleStatus === "VERKAUFT") {
+    await adapter.setUnavailable(after)
+    mutate(scooterId, (current) =>
+      withListing(current, channel, {
+        status: "DEAKTIVIERT",
+        inventory: 0,
+        lastSyncedAt: new Date().toISOString(),
+        lastError: null,
+      })
+    )
+    log({
+      category: "KANAL",
+      action: `${adapter.displayName}: Veröffentlichung verworfen`,
+      detail:
+        "Der Scooter wurde während der Übertragung verkauft. Das Angebot wurde sofort wieder stillgelegt.",
+      scooter: after,
+      level: "warning",
+    })
+    return actionFail<Scooter>(
+      `${after.scooterNumber} wurde zwischenzeitlich verkauft. Das Angebot bleibt inaktiv.`,
+      true
+    )
   }
 
   const result = mutate(scooterId, (current) =>
@@ -796,6 +949,10 @@ async function syncSaleToSheets(saleId: string): Promise<ActionResult<Sale>> {
   const sale = store().sales.find((s) => s.id === saleId)
   if (!sale) return actionFail<Sale>("Verkauf nicht gefunden.")
 
+  // Bereits geschrieben: kein zweiter Schreibvorgang, auch nicht nach einem
+  // Neuladen. Der Wiederholen-Knopf darf keine Doppelzeile erzeugen.
+  if (sale.sheetsSyncStatus === "SYNCHRONISIERT") return actionOk(sale)
+
   store().patchSale(saleId, { sheetsSyncStatus: "WARTET", sheetsError: null })
 
   const response = await sheetsAdapter.appendSale(sale)
@@ -821,6 +978,7 @@ async function syncSaleToSheets(saleId: string): Promise<ActionResult<Sale>> {
     sheetsSyncStatus: "SYNCHRONISIERT",
     sheetsSyncedAt: now,
     sheetsError: null,
+    sheetsRowNumber: response.data.rowNumber,
   })
   store().setIntegrations({ sheetsLastSyncAt: now })
 
@@ -928,11 +1086,121 @@ class DemoImportRepository implements ImportRepository {
 
     return actionOk(batch)
   }
+
+  async saveMapping(mapping: ColumnMapping[]) {
+    store().setSavedMapping(mapping)
+    return actionOk(undefined)
+  }
+
+  /**
+   * Beispiel-Lieferliste. Läuft bewusst über das Repository und nicht direkt
+   * aus der Komponente heraus — beim Wechsel auf die echte Avides-Anbindung
+   * wird hier getauscht, nicht im Assistenten.
+   */
+  async loadDemoTable() {
+    const source = new MockAvidesImportSource()
+    const table = await source.loadDemoTable()
+    return actionOk(table)
+  }
 }
 
 /* ------------------------------------------------------------------ */
 /* Demo-Funktionen                                                     */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Einstellungen & Datensicherung                                      */
+/* ------------------------------------------------------------------ */
+
+/** Kennzeichnet eine Sicherungsdatei, damit fremde JSON-Dateien auffallen. */
+const SNAPSHOT_MARKER = "skope-cockpit-snapshot"
+
+interface Snapshot {
+  marker: typeof SNAPSHOT_MARKER
+  version: number
+  exportedAt: string
+  scooters: Scooter[]
+  sales: Sale[]
+  activity: AuditEvent[]
+  importBatches: ImportBatch[]
+}
+
+class DemoSettingsRepository implements SettingsRepository {
+  async setIntegrationFlags(patch: Partial<IntegrationState>) {
+    store().setIntegrations(patch)
+    return actionOk(undefined)
+  }
+
+  async exportSnapshot() {
+    const state = store()
+    const snapshot: Snapshot = {
+      marker: SNAPSHOT_MARKER,
+      version: SNAPSHOT_VERSION,
+      exportedAt: new Date().toISOString(),
+      scooters: state.scooters,
+      sales: state.sales,
+      activity: state.activity,
+      importBatches: state.importBatches,
+    }
+
+    const stamp = snapshot.exportedAt.slice(0, 10)
+    return actionOk({
+      fileName: `skope-sicherung-${stamp}.json`,
+      json: JSON.stringify(snapshot, null, 2),
+    })
+  }
+
+  async importSnapshot(json: string) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(json)
+    } catch {
+      return actionFail<{ scooters: number; sales: number }>(
+        "Die Datei ist kein gültiges JSON.",
+        true
+      )
+    }
+
+    const snapshot = parsed as Partial<Snapshot>
+    if (snapshot?.marker !== SNAPSHOT_MARKER || !Array.isArray(snapshot.scooters)) {
+      return actionFail<{ scooters: number; sales: number }>(
+        "Das ist keine SKOPE-Sicherungsdatei.",
+        true
+      )
+    }
+
+    const sales = (snapshot.sales ?? []).map((sale) => ({
+      ...sale,
+      sheetsRowNumber: sale.sheetsRowNumber ?? null,
+    }))
+
+    store().replaceAll({
+      scooters: snapshot.scooters,
+      sales,
+      activity: snapshot.activity ?? [],
+      importBatches: snapshot.importBatches ?? [],
+    })
+
+    log({
+      category: "SYSTEM",
+      action: "Sicherung eingespielt",
+      detail:
+        `${snapshot.scooters.length} Scooter und ${sales.length} Verkäufe aus einer ` +
+        `Sicherung vom ${formatSnapshotDate(snapshot.exportedAt)} übernommen.`,
+      level: "warning",
+    })
+
+    return actionOk({ scooters: snapshot.scooters.length, sales: sales.length })
+  }
+}
+
+function formatSnapshotDate(iso: string | undefined): string {
+  if (!iso) return "unbekannten Datum"
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime())
+    ? "unbekannten Datum"
+    : date.toLocaleDateString("de-DE")
+}
 
 class DemoExtras implements DemoRepositoryExtras {
   /**
@@ -963,10 +1231,27 @@ class DemoExtras implements DemoRepositoryExtras {
       level: "info",
     })
 
+    // Kein Rückfall auf 0 €: Ein Verkauf ohne Preis ist unumkehrbar und
+    // verfälscht Umsatz und Marge des Monats.
+    const salePriceCents = scooter.salePriceCents ?? shopifyListing.priceCents
+    if (salePriceCents === null || salePriceCents <= 0) {
+      return actionFail<Sale>(
+        `${scooter.scooterNumber} hat keinen Verkaufspreis. Der Vorgang wurde abgebrochen, ` +
+          `damit kein Verkauf über 0 € entsteht.`,
+        true
+      )
+    }
+
     const scooters = new DemoScooterRepository()
     return scooters.markAsSold(scooterId, {
       channel: "SHOPIFY",
-      salePriceCents: scooter.salePriceCents ?? shopifyListing.priceCents ?? 0,
+      // Bei einer echten Bestellung käme die Herkunft aus den UTM-Feldern der
+      // Shopify-Order. Solange die Schnittstelle nicht steht, wird nichts
+      // behauptet: WEBSITE ist gesichert, die Quelle davor nicht.
+      customerSource: "WEBSITE",
+      customerRegion: "",
+      saleLocation: "Versand",
+      salePriceCents,
       soldAt: new Date().toISOString(),
       note: "Automatisch über Shopify-Bestellung erfasst (Demo-Webhook).",
     })
@@ -974,9 +1259,7 @@ class DemoExtras implements DemoRepositoryExtras {
 
   async resetDemoData(): Promise<ActionResult> {
     store().resetDemoData()
-    // Nach dem Reset ist der Store neu — der Log-Eintrag gehört in den neuen Zustand.
-    const seed = createSeedData()
-    void seed
+    // Der Log-Eintrag gehört bewusst in den frischen Zustand, nicht davor.
     log({
       category: "SYSTEM",
       action: "Demo-Daten zurückgesetzt",
@@ -996,5 +1279,6 @@ export const repositories: Repositories = {
   channels: new DemoChannelRepository(),
   sales: new DemoSalesRepository(),
   imports: new DemoImportRepository(),
+  settings: new DemoSettingsRepository(),
   demo: new DemoExtras(),
 }

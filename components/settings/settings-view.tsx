@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { toast } from "sonner"
-import { RotateCcw, ShieldCheck, User } from "lucide-react"
+import { Download, RotateCcw, ShieldCheck, Upload, User } from "lucide-react"
 
 import { Modal } from "@/components/skope/modal"
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/skope/primitives"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import { runAction } from "@/lib/data/run-action"
 import {
   useActivity,
   useCurrentUser,
@@ -31,15 +32,63 @@ export function SettingsView() {
   const activity = useActivity()
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   async function reset() {
     setResetting(true)
-    await repositories.demo.resetDemoData()
+    await runAction(repositories.demo.resetDemoData(), {
+      success: "Demo-Daten zurückgesetzt",
+      failure: "Zurücksetzen fehlgeschlagen",
+    })
     setResetting(false)
     setResetOpen(false)
-    toast.success("Demo-Daten zurückgesetzt", {
-      description: "Der Beispielbestand entspricht wieder dem Auslieferungszustand.",
+  }
+
+  /**
+   * Sicherung herunterladen.
+   *
+   * Im Prototyp hängt der gesamte Bestand an einem Browserprofil. Ohne diesen
+   * Weg wäre ein geleerter Cache gleichbedeutend mit Totalverlust — und für
+   * die spätere Übernahme nach Supabase gäbe es keinen Ausgang.
+   */
+  async function exportData() {
+    setBusy(true)
+    const data = await runAction(repositories.settings.exportSnapshot(), {
+      failure: "Export fehlgeschlagen",
     })
+    setBusy(false)
+    if (!data) return
+
+    const blob = new Blob([data.json], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = data.fileName
+    anchor.click()
+    // Die Objekt-URL wieder freigeben, sonst hält sie den Blob im Speicher.
+    URL.revokeObjectURL(url)
+    toast.success("Sicherung heruntergeladen", { description: data.fileName })
+  }
+
+  async function importData(file: File | undefined) {
+    if (!file) return
+    setBusy(true)
+    try {
+      const text = await file.text()
+      const summary = await runAction(
+        repositories.settings.importSnapshot(text),
+        { failure: "Sicherung nicht eingespielt" }
+      )
+      if (summary) {
+        toast.success("Sicherung eingespielt", {
+          description: `${summary.scooters} Scooter und ${summary.sales} Verkäufe übernommen.`,
+        })
+      }
+    } finally {
+      setBusy(false)
+      if (fileRef.current) fileRef.current.value = ""
+    }
   }
 
   return (
@@ -102,6 +151,47 @@ export function SettingsView() {
         </Panel>
       </div>
 
+      <Panel>
+        <PanelHeader
+          title="Datensicherung"
+          description="Der gesamte Bestand liegt in diesem Browser. Ein Export ist die einzige Kopie."
+        />
+        <PanelBody>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              className="h-11 gap-2 px-4"
+              onClick={exportData}
+              disabled={busy}
+            >
+              <Download className="size-4" />
+              Alle Daten exportieren
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 gap-2 px-4"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+            >
+              <Upload className="size-4" />
+              Sicherung einspielen
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="sr-only"
+              onChange={(event) => importData(event.target.files?.[0])}
+            />
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Der Export enthält Bestand, Verkäufe, Aktivitäten und Importläufe als
+            JSON-Datei. Beim Einspielen wird der aktuelle Stand vollständig
+            ersetzt — vorher exportieren. Dieselbe Datei ist später die Grundlage
+            für die einmalige Übernahme nach Supabase.
+          </p>
+        </PanelBody>
+      </Panel>
+
       <Panel className="border-state-error/20">
         <PanelHeader
           title="Demo-Daten"
@@ -110,15 +200,17 @@ export function SettingsView() {
         <PanelBody>
           <Button
             variant="outline"
-            className="h-10 gap-2 px-4"
+            className="h-11 gap-2 px-4"
             onClick={() => setResetOpen(true)}
+            disabled={busy}
           >
             <RotateCcw className="size-4" />
             Demo-Daten zurücksetzen
           </Button>
           <p className="mt-3 text-xs text-muted-foreground">
             Alle im Demo angelegten Scooter, Prüfungen, Reparaturen, Bilder und
-            Verkäufe gehen dabei verloren.
+            Verkäufe gehen dabei verloren. Vorher exportieren, wenn der Stand
+            erhalten bleiben soll.
           </p>
         </PanelBody>
       </Panel>

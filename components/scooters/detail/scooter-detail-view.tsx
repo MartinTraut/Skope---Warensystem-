@@ -167,7 +167,7 @@ export function ScooterDetailView({ scooterId }: { scooterId: string }) {
                         ? "bg-state-error/15 text-state-error"
                         : badge.tone === "warn"
                           ? "bg-state-warn/15 text-state-warn"
-                          : "bg-white/8 text-muted-foreground"
+                          : "bg-surface-track text-muted-foreground"
                     )}
                   >
                     {badge.value}

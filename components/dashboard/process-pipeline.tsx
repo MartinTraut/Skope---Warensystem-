@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react"
 
 import { Panel, PanelBody, PanelHeader } from "@/components/skope/primitives"
 import { usePipeline } from "@/hooks/use-cockpit"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { cn } from "@/lib/utils"
 
 /**
@@ -14,6 +15,19 @@ import { cn } from "@/lib/utils"
  * Stufen ist die eigentliche Information. Die Balkenbreite unter den Zahlen
  * zeigt zusätzlich das Verhältnis zueinander.
  */
+
+/**
+ * Farbe je Stufe — identisch zu den Bestandskacheln und den Statusabzeichen.
+ * Eine Stufe hat im ganzen Cockpit genau eine Farbe.
+ */
+const STAGE_TONE: Record<string, { text: string; bar: string }> = {
+  EINGEGANGEN: { text: "text-state-info", bar: "bg-state-info" },
+  IN_PRUEFUNG: { text: "text-state-warn", bar: "bg-state-warn" },
+  AUFBEREITUNG: { text: "text-state-progress", bar: "bg-state-progress" },
+  VERKAUFSBEREIT: { text: "text-state-ready", bar: "bg-state-ready" },
+  INSERIERT: { text: "text-state-live", bar: "bg-state-live" },
+  VERKAUFT: { text: "text-skope-gold", bar: "bg-skope-gold" },
+}
 
 const STAGE_LINKS: Record<string, string> = {
   EINGEGANGEN: "/inbound",
@@ -38,34 +52,31 @@ export function ProcessPipeline() {
         <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
           {stages.map((stage, index) => {
             const isLast = index === stages.length - 1
+            const tone = STAGE_TONE[stage.key] ?? {
+              text: "text-foreground",
+              bar: "bg-skope-steel/70",
+            }
             return (
               <li key={stage.key} className="relative">
                 <Link
                   href={STAGE_LINKS[stage.key] ?? "/scooters"}
                   className={cn(
-                    "group block h-full rounded-lg border border-skope-line bg-white/2 p-3.5 transition-all duration-200",
-                    "hover:border-skope-gold/30 hover:bg-skope-gold/5",
-                    "focus-visible:border-skope-gold/50 focus-visible:ring-3 focus-visible:ring-skope-gold/15 focus-visible:outline-none"
+                    "group block h-full rounded-lg border border-skope-line bg-surface-sunken p-3.5 transition-all duration-200",
+                    "hover:border-skope-line-strong hover:bg-surface-raised",
+                    FOCUS_RING
                   )}
                 >
-                  <p className="text-[11px] leading-tight font-medium tracking-wide text-muted-foreground uppercase">
+                  <p className="type-caption leading-tight font-medium tracking-wide text-muted-foreground uppercase">
                     {stage.label}
                   </p>
-                  <p
-                    className={cn(
-                      "mt-2 text-2xl leading-none font-medium tabular-nums transition-colors",
-                      isLast
-                        ? "text-skope-gold"
-                        : "text-foreground group-hover:text-skope-gold"
-                    )}
-                  >
+                  <p className={cn("mt-2 type-metric transition-colors", tone.text)}>
                     {stage.count}
                   </p>
-                  <div className="mt-3 h-0.5 w-full overflow-hidden rounded-full bg-white/6">
+                  <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-surface-track">
                     <div
                       className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        isLast ? "bg-skope-gold" : "bg-skope-steel/70"
+                        "h-full rounded-full transition-[width] duration-300",
+                        tone.bar
                       )}
                       style={{ width: `${Math.max(4, (stage.count / max) * 100)}%` }}
                     />

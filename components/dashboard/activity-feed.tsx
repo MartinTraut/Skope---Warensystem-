@@ -77,23 +77,23 @@ export function ActivityList({ events }: { events: AuditEvent[] }) {
               {event.scooterNumber && event.scooterId ? (
                 <Link
                   href={`/scooters/${event.scooterId}`}
-                  className="rounded font-mono text-[0.8125rem] font-medium text-foreground transition-colors hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+                  className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
                 >
                   {event.scooterNumber}
                 </Link>
               ) : (
-                <span className="text-[0.8125rem] font-medium text-foreground">
+                <span className="type-body-sm font-medium text-foreground">
                   System
                 </span>
               )}
-              <span className="text-[0.8125rem] text-foreground/85">
+              <span className="type-body-sm text-foreground/85">
                 {event.action}
               </span>
             </div>
             <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
               {event.detail}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">
+            <p className="mt-1 type-caption text-muted-foreground/70">
               <RelativeTime iso={event.at} /> · {event.actor}
             </p>
           </div>

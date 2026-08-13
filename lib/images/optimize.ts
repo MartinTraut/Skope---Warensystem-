@@ -9,8 +9,18 @@
  * ohnehin ausreichend.
  */
 
-const MAX_EDGE = 1600
-const QUALITY = 0.82
+/*
+ * 1400 px und WebP statt 1600 px und JPEG.
+ *
+ * Ein Produktfoto im Shop wird nie größer als etwa 1200 px dargestellt; die
+ * zusätzliche Kantenlänge kostet nur Platz. WebP bei 0,72 liefert bei diesen
+ * Motiven sichtbar dieselbe Qualität wie JPEG bei 0,82, bei etwa einem Drittel
+ * der Dateigröße — aus rund 400 KB werden rund 130 KB. Das entscheidet im
+ * Prototyp darüber, ob der Browserspeicher reicht, und spart später
+ * Storage und Ladezeit.
+ */
+const MAX_EDGE = 1400
+const QUALITY = 0.72
 
 export async function optimizeImageFile(file: File): Promise<string> {
   const bitmap = await loadBitmap(file)
@@ -31,9 +41,21 @@ export async function optimizeImageFile(file: File): Promise<string> {
   context.drawImage(bitmap, 0, 0, width, height)
   if ("close" in bitmap) bitmap.close()
 
-  // JPEG statt PNG: Produktfotos brauchen keine Transparenz und werden
-  // dadurch um ein Vielfaches kleiner.
+  // WebP, wo der Browser es kann — sonst JPEG. Beides ohne Transparenz,
+  // die Produktfotos nicht brauchen. `toDataURL` liefert bei einem nicht
+  // unterstützten Format stillschweigend PNG zurück, deshalb wird das
+  // Ergebnis geprüft statt geglaubt.
+  const webp = canvas.toDataURL("image/webp", QUALITY)
+  if (webp.startsWith("data:image/webp")) return webp
+
   return canvas.toDataURL("image/jpeg", QUALITY)
+}
+
+/** Ungefähre Bytegröße einer Data-URL — Base64 trägt rund ein Drittel Overhead. */
+export function dataUrlBytes(dataUrl: string): number {
+  const comma = dataUrl.indexOf(",")
+  if (comma === -1) return dataUrl.length
+  return Math.round((dataUrl.length - comma - 1) * 0.75)
 }
 
 async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {

@@ -12,6 +12,7 @@ import {
 } from "./badges"
 import { EmptyState } from "@/components/skope/primitives"
 import { RelativeTime } from "@/components/skope/client-time"
+import { useRowNavigation } from "@/components/skope/row-link"
 import { formatCents, formatKm } from "@/lib/domain/money"
 import { expectedMarginCents } from "@/lib/domain/metrics"
 import { getListing } from "@/lib/domain/status"
@@ -79,6 +80,7 @@ function DesktopTable({
   variant: "full" | "compact"
 }) {
   const full = variant === "full"
+  const openRow = useRowNavigation()
 
   return (
     <table className="w-full text-left text-sm">
@@ -107,7 +109,8 @@ function DesktopTable({
           return (
             <tr
               key={scooter.id}
-              className="group transition-colors duration-150 hover:bg-white/2"
+              onClick={(event) => openRow(`/scooters/${scooter.id}`, event)}
+              className="group cursor-pointer transition-colors duration-150 hover:bg-surface-sunken"
             >
               <Td className="pl-4 sm:pl-5">
                 <ScooterIdentity
@@ -240,7 +243,7 @@ function MobileCard({ scooter }: { scooter: Scooter }) {
   return (
     <Link
       href={`/scooters/${scooter.id}`}
-      className="block px-4 py-4 transition-colors active:bg-white/4 focus-visible:bg-white/4 focus-visible:outline-none"
+      className="block px-4 py-4 transition-colors active:bg-surface-raised focus-visible:bg-surface-raised focus-visible:outline-none"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -266,7 +269,7 @@ function MobileCard({ scooter }: { scooter: Scooter }) {
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <ChannelIndicators scooter={scooter} />
-        <p className="text-[11px] text-muted-foreground">
+        <p className="type-caption text-muted-foreground">
           {formatKm(scooter.mileageKm)} · {scooter.location}
         </p>
       </div>

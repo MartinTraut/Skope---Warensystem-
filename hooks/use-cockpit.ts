@@ -11,7 +11,10 @@
 import { useSyncExternalStore } from "react"
 
 import {
+  computeCapitalByStage,
+  computeChannelShares,
   computeDashboardMetrics,
+  computeMonthlyRevenue,
   computePipeline,
   computeSalesMetrics,
   filterSalesThisMonth,
@@ -101,6 +104,37 @@ export function usePipeline() {
   const scooters = useScooters()
   const sales = useSales()
   return computePipeline(scooters, sales)
+}
+
+/**
+ * Einstellungen der Dashboard-Auswertung, gelesen und geschrieben.
+ *
+ * Ausnahmsweise auch schreibend hier: Es geht um eine reine Ansichtsvorliebe,
+ * nicht um Geschäftsdaten — die laufen weiterhin ausschließlich über die
+ * Repositories.
+ */
+export function useChartPrefs() {
+  const prefs = useCockpitStore((state) => state.chartPrefs)
+  const setPrefs = useCockpitStore((state) => state.setChartPrefs)
+  return [prefs, setPrefs] as const
+}
+
+/** Umsatz und Marge der letzten Monate — Zeitreihe für das Dashboard. */
+export function useMonthlyRevenue(months = 6) {
+  const sales = useSales()
+  return computeMonthlyRevenue(sales, months)
+}
+
+/** Umsatzanteile je Verkaufskanal, absteigend. */
+export function useChannelShares() {
+  const sales = useSales()
+  return computeChannelShares(sales)
+}
+
+/** Gebundenes Kapital je Prozessstufe. */
+export function useCapitalByStage() {
+  const scooters = useScooters()
+  return computeCapitalByStage(scooters)
 }
 
 export function useSalesMetrics(scope: "month" | "all" = "month") {

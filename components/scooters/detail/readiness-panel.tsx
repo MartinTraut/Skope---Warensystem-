@@ -85,7 +85,7 @@ export function ReadinessPanel({ scooter }: { scooter: Scooter }) {
               <div className="min-w-0">
                 <p
                   className={cn(
-                    "text-[0.8125rem]",
+                    "type-body-sm",
                     check.ok ? "text-foreground/70" : "font-medium text-foreground"
                   )}
                 >

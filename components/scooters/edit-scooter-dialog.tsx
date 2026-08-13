@@ -13,7 +13,7 @@ import {
 } from "@/components/skope/form"
 import { repositories } from "@/lib/data/demo-repository"
 import { toDateInput } from "@/lib/domain/money"
-import { CONDITION_META, WORKFLOW_META } from "@/lib/domain/status"
+import { canTransition, CONDITION_META, WORKFLOW_META } from "@/lib/domain/status"
 import {
   CONDITIONS,
   WORKFLOW_STATUSES,
@@ -187,7 +187,16 @@ export function EditScooterDialog({
             onChange={(event) =>
               set("workflowStatus", event.target.value as WorkflowStatus)
             }
-            options={WORKFLOW_STATUSES.map((status) => ({
+            /*
+              Nur erreichbare Ziele anbieten. Vorher stand die vollständige
+              Liste zur Wahl, und ein unzulässiger Sprung schlug erst beim
+              Speichern fehl.
+            */
+            options={WORKFLOW_STATUSES.filter(
+              (status) =>
+                status === scooter.workflowStatus ||
+                canTransition(scooter.workflowStatus, status)
+            ).map((status) => ({
               value: status,
               label: WORKFLOW_META[status].label,
             }))}

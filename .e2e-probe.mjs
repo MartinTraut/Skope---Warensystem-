@@ -1,0 +1,15 @@
+import { chromium } from "playwright"
+const b = await chromium.launch()
+const p = await b.newPage({ viewport: { width: 1512, height: 950 } })
+p.on("pageerror", e => console.log("PAGEERROR", e.message))
+await p.goto("http://localhost:3000/scooters", { waitUntil: "networkidle" })
+await p.waitForTimeout(1200)
+// Sidebar einklappen -> erzeugt eine Zustandsänderung
+await p.getByRole("button", { name: "Navigation einklappen" }).click()
+await p.waitForTimeout(600)
+const raw = await p.evaluate(() => localStorage.getItem("skope-cockpit-demo"))
+console.log("geschrieben:", raw ? "ja, version=" + JSON.parse(raw).version + ", scooters=" + JSON.parse(raw).state.scooters.length : "NEIN")
+await p.reload({ waitUntil: "networkidle" })
+await p.waitForTimeout(1200)
+console.log("nach Reload eingeklappt:", await p.getByRole("button", { name: "Navigation ausklappen" }).isVisible().catch(()=>false))
+await b.close()

@@ -21,7 +21,10 @@ export function createId(prefix = "id"): string {
   return `${prefix}_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
 }
 
-const NUMBER_PATTERN = /^SK-(\d{4})-(\d{4})$/
+// Mindestens vier Stellen, nach oben offen: Ab SK-JJJJ-10000 würde ein
+// starres {4} nicht mehr greifen, das Maximum fiele zurück auf 0 und der
+// Zähler begänne erneut bei 0001 — mit doppelten Nummern als Folge.
+const NUMBER_PATTERN = /^SK-(\d{4})-(\d{4,})$/
 
 /**
  * Ermittelt die nächste freie Nummer für das laufende Jahr.

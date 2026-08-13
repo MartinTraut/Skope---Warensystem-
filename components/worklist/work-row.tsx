@@ -31,7 +31,7 @@ export function WorkRow({
   warning?: string
 }) {
   return (
-    <li className="px-4 py-4 transition-colors hover:bg-white/2 sm:px-5">
+    <li className="px-4 py-4 transition-colors hover:bg-surface-sunken sm:px-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -91,10 +91,10 @@ export function MiniProgress({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="h-1 w-24 overflow-hidden rounded-full bg-white/8">
+      <div className="h-1 w-24 overflow-hidden rounded-full bg-surface-track">
         <div
           className={cn(
-            "h-full rounded-full transition-all duration-500",
+            "h-full rounded-full transition-[width] duration-300",
             tone === "warn"
               ? "bg-state-warn"
               : tone === "ready"

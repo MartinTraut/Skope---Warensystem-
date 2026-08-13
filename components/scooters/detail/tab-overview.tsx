@@ -68,7 +68,7 @@ export function TabOverview({ scooter }: { scooter: Scooter }) {
             )}
 
             {scooter.notes && (
-              <div className="mt-5 rounded-lg border border-skope-line bg-white/2 p-3.5">
+              <div className="mt-5 rounded-lg border border-skope-line bg-surface-sunken p-3.5">
                 <p className="type-label">Interne Notiz</p>
                 <p className="mt-1.5 text-sm leading-relaxed text-foreground/85">
                   {scooter.notes}
@@ -170,7 +170,7 @@ function FinancePanel({ scooter }: { scooter: Scooter }) {
           </span>
         </div>
 
-        <p className="pt-2 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="pt-2 type-caption leading-relaxed text-muted-foreground">
           Operative Rechengröße. Steuerliche Betrachtung — insbesondere eine
           mögliche Differenzbesteuerung — ist bewusst nicht abgebildet.
         </p>
@@ -234,7 +234,7 @@ function DocumentsPanel({ scooter }: { scooter: Scooter }) {
               )}
               <span
                 className={cn(
-                  "text-[0.8125rem]",
+                  "type-body-sm",
                   document.present ? "text-foreground/85" : "text-muted-foreground"
                 )}
               >

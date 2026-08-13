@@ -10,12 +10,27 @@ import { MoneyField, SelectField, TextareaField, TextField } from "@/components/
 import { repositories } from "@/lib/data/demo-repository"
 import { centsToInput, formatCents, parseCents } from "@/lib/domain/money"
 import { repairCostsCents } from "@/lib/domain/metrics"
-import { SALE_CHANNEL_META, modelLabel } from "@/lib/domain/status"
-import { SALE_CHANNELS, type SaleChannel, type Scooter } from "@/lib/domain/types"
+import {
+  CUSTOMER_SOURCE_META,
+  SALE_CHANNEL_META,
+  modelLabel,
+} from "@/lib/domain/status"
+import {
+  CUSTOMER_SOURCES,
+  SALE_CHANNELS,
+  type CustomerSource,
+  type SaleChannel,
+  type Scooter,
+} from "@/lib/domain/types"
 
 const CHANNEL_OPTIONS = SALE_CHANNELS.map((channel) => ({
   value: channel,
   label: SALE_CHANNEL_META[channel].label,
+}))
+
+const SOURCE_OPTIONS = CUSTOMER_SOURCES.map((source) => ({
+  value: source,
+  label: CUSTOMER_SOURCE_META[source].label,
 }))
 
 /**
@@ -34,6 +49,9 @@ export function MarkAsSoldDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [channel, setChannel] = useState<SaleChannel>("VOR_ORT")
+  const [source, setSource] = useState<CustomerSource>("UNBEKANNT")
+  const [region, setRegion] = useState("")
+  const [place, setPlace] = useState("")
   const [price, setPrice] = useState("")
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState("")
@@ -49,6 +67,9 @@ export function MarkAsSoldDialog({
       setDate(new Date().toISOString().slice(0, 10))
       setNote("")
       setChannel("VOR_ORT")
+      setSource("UNBEKANNT")
+      setRegion("")
+      setPlace(scooter.location)
     }
   }
 
@@ -67,14 +88,31 @@ export function MarkAsSoldDialog({
       return
     }
 
+    // Ein geleertes Datumsfeld ergibt ein ungültiges Date, dessen toISOString()
+    // wirft — der Dialog bliebe dann dauerhaft auf "Wird erfasst …" stehen.
+    const soldAt = new Date(date)
+    if (Number.isNaN(soldAt.getTime())) {
+      toast.error("Verkaufsdatum fehlt", {
+        description: "Bitte ein gültiges Datum angeben.",
+      })
+      return
+    }
+
     setSaving(true)
-    const result = await repositories.scooters.markAsSold(scooter.id, {
-      channel,
-      salePriceCents: priceCents,
-      soldAt: new Date(date).toISOString(),
-      note,
-    })
-    setSaving(false)
+    let result
+    try {
+      result = await repositories.scooters.markAsSold(scooter.id, {
+        channel,
+        customerSource: source,
+        customerRegion: region,
+        saleLocation: place,
+        salePriceCents: priceCents,
+        soldAt: soldAt.toISOString(),
+        note,
+      })
+    } finally {
+      setSaving(false)
+    }
 
     if (!result.ok) {
       toast.error("Verkauf nicht erfasst", { description: result.message })
@@ -82,9 +120,19 @@ export function MarkAsSoldDialog({
     }
 
     onOpenChange(false)
+
+    if (result.data.sheetsSyncStatus === "FEHLER") {
+      toast.warning(`${scooter.scooterNumber} verkauft — Reporting offen`, {
+        description:
+          `Bestand auf 0 gesetzt und Kanäle deaktiviert. Die Umsatzzeile wurde ` +
+          `nicht geschrieben und kann im Reiter „Verkauf" wiederholt werden.`,
+      })
+      return
+    }
+
     toast.success(`${scooter.scooterNumber} als verkauft erfasst`, {
       description:
-        "Bestand auf 0 gesetzt, Kanäle deaktiviert und Reporting angestoßen.",
+        "Bestand auf 0 gesetzt, Kanäle deaktiviert und Reporting geschrieben.",
     })
   }
 
@@ -132,6 +180,38 @@ export function MarkAsSoldDialog({
           />
         </div>
 
+        {/*
+          Herkunft. Getrennt vom Kanal, weil beides verschiedene Fragen
+          beantwortet: der Kanal, wo abgewickelt wurde — die Herkunft, welche
+          Werbung den Kunden gebracht hat.
+        */}
+        <div className="rounded-lg border border-skope-line bg-surface-sunken p-4">
+          <p className="type-label">Herkunft des Kunden</p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <SelectField
+              label="Aufmerksam geworden über"
+              options={SOURCE_OPTIONS}
+              value={source}
+              onChange={(event) =>
+                setSource(event.target.value as CustomerSource)
+              }
+              hint={CUSTOMER_SOURCE_META[source].hint}
+            />
+            <TextField
+              label="Ort / PLZ des Käufers"
+              placeholder="optional — z. B. 21073 Hamburg"
+              value={region}
+              onChange={(event) => setRegion(event.target.value)}
+            />
+            <TextField
+              label="Übergabe"
+              placeholder="Lager, Versand, Ladenlokal"
+              value={place}
+              onChange={(event) => setPlace(event.target.value)}
+            />
+          </div>
+        </div>
+
         <TextareaField
           label="Notiz"
           rows={2}
@@ -141,7 +221,7 @@ export function MarkAsSoldDialog({
         />
 
         {/* Live-Kalkulation */}
-        <div className="rounded-lg border border-skope-line bg-white/2 p-4">
+        <div className="rounded-lg border border-skope-line bg-surface-sunken p-4">
           <p className="type-label">Kalkulation</p>
           <dl className="mt-3 space-y-1.5 text-sm">
             <Row label="Einkauf" value={formatCents(scooter.purchasePriceCents)} />
@@ -172,7 +252,7 @@ export function MarkAsSoldDialog({
               strong
             />
           </dl>
-          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-3 type-caption leading-relaxed text-muted-foreground">
             Operative Rechengröße ohne steuerliche Betrachtung. Eine mögliche
             Differenzbesteuerung ist hier bewusst nicht abgebildet.
           </p>

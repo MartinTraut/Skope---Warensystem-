@@ -11,6 +11,7 @@ import type {
   InspectionResult,
   ListingStatus,
   RepairStatus,
+  CustomerSource,
   SaleChannel,
   SaleStatus,
   Scooter,
@@ -105,6 +106,45 @@ export const CHANNEL_META: Record<
   SHOPIFY: { label: "Shopify", short: "SHP", automated: true },
   // Kein automatisierter Kanal, solange keine Schnittstelle bestätigt ist.
   KLEINANZEIGEN: { label: "Kleinanzeigen", short: "KA", automated: false },
+}
+
+/**
+ * Herkunft des Kunden.
+ *
+ * `hint` erklärt die Abgrenzung — ohne sie landet in der Praxis alles auf
+ * „Sonstige" und die Auswertung ist wertlos.
+ */
+export const CUSTOMER_SOURCE_META: Record<
+  CustomerSource,
+  { label: string; hint: string }
+> = {
+  UNBEKANNT: { label: "Nicht erfasst", hint: "Herkunft wurde nicht erfragt." },
+  WEBSITE: {
+    label: "Website / Shop",
+    hint: "Direkt über die eigene Seite oder den Shopify-Store.",
+  },
+  GOOGLE: {
+    label: "Google",
+    hint: "Suche, Maps oder Google-Anzeige.",
+  },
+  KLEINANZEIGEN: {
+    label: "Kleinanzeigen",
+    hint: "Über eine Kleinanzeigen-Anzeige gefunden.",
+  },
+  SOCIAL_MEDIA: {
+    label: "Social Media",
+    hint: "Instagram, Facebook, TikTok, YouTube.",
+  },
+  EMPFEHLUNG: {
+    label: "Empfehlung",
+    hint: "Von einem anderen Kunden weitergesagt.",
+  },
+  STAMMKUNDE: { label: "Stammkunde", hint: "Hat schon einmal gekauft." },
+  LAUFKUNDSCHAFT: {
+    label: "Laufkundschaft",
+    hint: "Vor Ort vorbeigekommen, ohne vorherige Suche.",
+  },
+  SONSTIGE: { label: "Sonstige", hint: "Passt in keine der Kategorien." },
 }
 
 export const SALE_CHANNEL_META: Record<SaleChannel, { label: string }> = {

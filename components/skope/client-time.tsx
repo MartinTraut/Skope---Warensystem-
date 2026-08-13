@@ -19,7 +19,7 @@ import {
 function Placeholder() {
   return (
     <span
-      className="inline-block h-3 w-16 animate-pulse rounded bg-white/6 align-middle"
+      className="inline-block h-3 w-16 animate-pulse rounded bg-surface-raised align-middle"
       aria-hidden
     />
   )

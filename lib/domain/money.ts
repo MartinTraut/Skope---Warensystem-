@@ -40,17 +40,47 @@ export function formatKm(km: number): string {
   return `${numberFormatter.format(km)} km`
 }
 
-/** "1.249,00" → 124900. Akzeptiert deutsche und englische Schreibweise. */
+/**
+ * "1.249,00" → 124900. Akzeptiert deutsche und englische Schreibweise.
+ *
+ * Das Trennzeichen wird aus der Position bestimmt, nicht aus dem Zeichen:
+ * Das *letzte* Komma oder Punkt trennt die Nachkommastellen, alles davor
+ * gruppiert nur Tausender. Sonst würde "1,234.56" als 1,23 gelesen — ein
+ * Fehler um den Faktor 1000, wie er bei englischen Lieferantenlisten
+ * zuverlässig auftritt.
+ */
 export function parseCents(input: string): number | null {
-  const cleaned = input
-    .replace(/[^\d,.-]/g, "")
-    .trim()
-    .replace(/\.(?=\d{3}\b)/g, "") // Tausenderpunkte entfernen
-    .replace(",", ".")
+  const cleaned = input.replace(/[^\d,.-]/g, "").trim()
   if (cleaned === "" || cleaned === "-") return null
-  const value = Number.parseFloat(cleaned)
+
+  const negative = cleaned.startsWith("-")
+  const digitsAndSeparators = cleaned.replace(/-/g, "")
+
+  const lastSeparator = Math.max(
+    digitsAndSeparators.lastIndexOf(","),
+    digitsAndSeparators.lastIndexOf(".")
+  )
+
+  // Ein einzelnes Trennzeichen mit drei Folgeziffern ist mehrdeutig
+  // ("1.234"). Bei Punkt gilt es als Tausendertrenner, bei Komma ebenso —
+  // beide Schreibweisen meinen dort denselben Betrag.
+  const decimals = digitsAndSeparators.length - lastSeparator - 1
+  const hasDecimalPart = lastSeparator !== -1 && decimals > 0 && decimals < 3
+
+  const whole = (
+    hasDecimalPart
+      ? digitsAndSeparators.slice(0, lastSeparator)
+      : digitsAndSeparators
+  ).replace(/[.,]/g, "")
+  const fraction = hasDecimalPart
+    ? digitsAndSeparators.slice(lastSeparator + 1).padEnd(2, "0")
+    : "00"
+
+  if (whole === "" && !hasDecimalPart) return null
+
+  const value = Number.parseInt(`${whole || "0"}${fraction}`, 10)
   if (Number.isNaN(value)) return null
-  return Math.round(value * 100)
+  return negative ? -value : value
 }
 
 /** Für Eingabefelder: 124900 → "1249,00" */
@@ -117,10 +147,21 @@ export function formatRelative(iso: string | null | undefined): string {
   return formatDate(iso)
 }
 
-/** YYYY-MM-DD für <input type="date"> */
+/**
+ * YYYY-MM-DD für <input type="date">.
+ *
+ * Bewusst lokal formatiert: `toISOString()` rechnet nach UTC und macht aus
+ * einem deutschen Sommer-Datum den Vortag. Da der Wert aus dem Eingabefeld
+ * anschließend wieder gespeichert wird, würde sich das Datum bei jedem
+ * Bearbeiten erneut um einen Tag zurückschieben.
+ */
 export function toDateInput(iso: string | null): string {
   if (!iso) return ""
-  return new Date(iso).toISOString().slice(0, 10)
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ""
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${date.getFullYear()}-${month}-${day}`
 }
 
 export function formatMinutes(minutes: number): string {

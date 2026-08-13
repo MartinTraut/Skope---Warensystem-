@@ -21,6 +21,7 @@ import type {
   InspectionResult,
   Listing,
   Repair,
+  CustomerSource,
   Sale,
   SaleChannel,
   SaleStatus,
@@ -54,8 +55,19 @@ function thisMonth(day: number, hour = 14): string {
 }
 
 function lastMonth(day: number): string {
+  return monthsAgo(1, day)
+}
+
+/**
+ * Verkaufsdatum vor `months` Monaten.
+ *
+ * Die Auswertung zeigt sechs Monate; ohne Verkäufe in den älteren Monaten
+ * wäre der Verlauf eine einzelne Säule und würde nichts über den Verlauf
+ * aussagen.
+ */
+function monthsAgo(months: number, day: number, hour = 12): string {
   const now = new Date()
-  const date = new Date(now.getFullYear(), now.getMonth() - 1, day, 12, 0, 0, 0)
+  const date = new Date(now.getFullYear(), now.getMonth() - months, day, hour, 0, 0, 0)
   return date.toISOString()
 }
 
@@ -454,23 +466,33 @@ interface SoldSpec {
   saleCents: number
   repairCents: number
   channel: SaleChannel
+  source: CustomerSource
+  region: string
+  place: string
   soldAt: string
   sheets: Sale["sheetsSyncStatus"]
 }
 
 const SOLD_SPECS: SoldSpec[] = [
-  { number: "SK-2026-0017", serial: "DEMO-XM4-1102", manufacturer: "Xiaomi", model: "Electric Scooter 4", color: "Schwarz", mileageKm: 720, purchaseCents: 21500, saleCents: 48900, repairCents: 1290, channel: "SHOPIFY", soldAt: thisMonth(2), sheets: "SYNCHRONISIERT" },
-  { number: "SK-2026-0016", serial: "DEMO-NB-F2-9938", manufacturer: "Segway-Ninebot", model: "KickScooter F2", color: "Grau", mileageKm: 1340, purchaseCents: 18900, saleCents: 41900, repairCents: 0, channel: "KLEINANZEIGEN", soldAt: thisMonth(3), sheets: "SYNCHRONISIERT" },
-  { number: "SK-2026-0015", serial: "DEMO-EGR-PRO-2214", manufacturer: "Egret", model: "Pro", color: "Schwarz", mileageKm: 410, purchaseCents: 39900, saleCents: 87900, repairCents: 2490, channel: "SHOPIFY", soldAt: thisMonth(5), sheets: "SYNCHRONISIERT" },
-  { number: "SK-2026-0014", serial: "DEMO-NIU-KQI3-6605", manufacturer: "NIU", model: "KQi3 Pro", color: "Weiß", mileageKm: 980, purchaseCents: 24900, saleCents: 53900, repairCents: 690, channel: "VOR_ORT", soldAt: thisMonth(7), sheets: "SYNCHRONISIERT" },
-  { number: "SK-2026-0013", serial: "DEMO-XM3-7781", manufacturer: "Xiaomi", model: "Mi Scooter 3", color: "Schwarz", mileageKm: 1670, purchaseCents: 15500, saleCents: 35900, repairCents: 1890, channel: "SHOPIFY", soldAt: thisMonth(9), sheets: "SYNCHRONISIERT" },
-  { number: "SK-2026-0012", serial: "DEMO-TRB-KALK-3302", manufacturer: "Trittbrett", model: "Kalle", color: "Petrol", mileageKm: 260, purchaseCents: 34500, saleCents: 76900, repairCents: 0, channel: "KLEINANZEIGEN", soldAt: thisMonth(11), sheets: "SYNCHRONISIERT" },
-  { number: "SK-2026-0011", serial: "DEMO-NB-MAXG30-8820", manufacturer: "Segway-Ninebot", model: "KickScooter MAX G30", color: "Schwarz", mileageKm: 2210, purchaseCents: 25900, saleCents: 55900, repairCents: 3290, channel: "SHOPIFY", soldAt: thisMonth(13), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0017", serial: "DEMO-XM4-1102", manufacturer: "Xiaomi", model: "Electric Scooter 4", color: "Schwarz", mileageKm: 720, purchaseCents: 21500, saleCents: 48900, repairCents: 1290, channel: "SHOPIFY", source: "WEBSITE", region: "Hamburg", place: "Versand", soldAt: thisMonth(2), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0016", serial: "DEMO-NB-F2-9938", manufacturer: "Segway-Ninebot", model: "KickScooter F2", color: "Grau", mileageKm: 1340, purchaseCents: 18900, saleCents: 41900, repairCents: 0, channel: "KLEINANZEIGEN", source: "KLEINANZEIGEN", region: "Lüneburg", place: "Abholung Lager", soldAt: thisMonth(3), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0015", serial: "DEMO-EGR-PRO-2214", manufacturer: "Egret", model: "Pro", color: "Schwarz", mileageKm: 410, purchaseCents: 39900, saleCents: 87900, repairCents: 2490, channel: "SHOPIFY", source: "GOOGLE", region: "Bremen", place: "Versand", soldAt: thisMonth(5), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0014", serial: "DEMO-NIU-KQI3-6605", manufacturer: "NIU", model: "KQi3 Pro", color: "Weiß", mileageKm: 980, purchaseCents: 24900, saleCents: 53900, repairCents: 690, channel: "VOR_ORT", source: "LAUFKUNDSCHAFT", region: "Hamburg", place: "Ladenlokal", soldAt: thisMonth(7), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0013", serial: "DEMO-XM3-7781", manufacturer: "Xiaomi", model: "Mi Scooter 3", color: "Schwarz", mileageKm: 1670, purchaseCents: 15500, saleCents: 35900, repairCents: 1890, channel: "SHOPIFY", source: "SOCIAL_MEDIA", region: "Berlin", place: "Versand", soldAt: thisMonth(9), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0012", serial: "DEMO-TRB-KALK-3302", manufacturer: "Trittbrett", model: "Kalle", color: "Petrol", mileageKm: 260, purchaseCents: 34500, saleCents: 76900, repairCents: 0, channel: "KLEINANZEIGEN", source: "KLEINANZEIGEN", region: "Buchholz", place: "Abholung Lager", soldAt: thisMonth(11), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0011", serial: "DEMO-NB-MAXG30-8820", manufacturer: "Segway-Ninebot", model: "KickScooter MAX G30", color: "Schwarz", mileageKm: 2210, purchaseCents: 25900, saleCents: 55900, repairCents: 3290, channel: "SHOPIFY", source: "GOOGLE", region: "Hannover", place: "Versand", soldAt: thisMonth(13), sheets: "SYNCHRONISIERT" },
   // Ein Verkauf, dessen Reporting-Sync fehlgeschlagen ist — der Fehler bleibt
   // sichtbar und ist auf der Verkaufsseite manuell wiederholbar.
-  { number: "SK-2026-0010", serial: "DEMO-XM4P-5514", manufacturer: "Xiaomi", model: "Electric Scooter 4 Pro", color: "Schwarz", mileageKm: 840, purchaseCents: 23900, saleCents: 52900, repairCents: 0, channel: "TELEFON", soldAt: thisMonth(15), sheets: "FEHLER" },
-  { number: "SK-2026-0009", serial: "DEMO-NIU-KQI2-1193", manufacturer: "NIU", model: "KQi2 Pro", color: "Grau", mileageKm: 1520, purchaseCents: 18500, saleCents: 42900, repairCents: 990, channel: "SHOPIFY", soldAt: lastMonth(24), sheets: "SYNCHRONISIERT" },
-  { number: "SK-2026-0008", serial: "DEMO-EGR-X-4408", manufacturer: "Egret", model: "X", color: "Anthrazit", mileageKm: 350, purchaseCents: 44900, saleCents: 96900, repairCents: 0, channel: "KLEINANZEIGEN", soldAt: lastMonth(19), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0010", serial: "DEMO-XM4P-5514", manufacturer: "Xiaomi", model: "Electric Scooter 4 Pro", color: "Schwarz", mileageKm: 840, purchaseCents: 23900, saleCents: 52900, repairCents: 0, channel: "TELEFON", source: "EMPFEHLUNG", region: "Hamburg", place: "Ladenlokal", soldAt: thisMonth(15), sheets: "FEHLER" },
+  { number: "SK-2026-0009", serial: "DEMO-NIU-KQI2-1193", manufacturer: "NIU", model: "KQi2 Pro", color: "Grau", mileageKm: 1520, purchaseCents: 18500, saleCents: 42900, repairCents: 990, channel: "SHOPIFY", source: "WEBSITE", region: "Kiel", place: "Versand", soldAt: lastMonth(24), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0008", serial: "DEMO-EGR-X-4408", manufacturer: "Egret", model: "X", color: "Anthrazit", mileageKm: 350, purchaseCents: 44900, saleCents: 96900, repairCents: 0, channel: "KLEINANZEIGEN", source: "KLEINANZEIGEN", region: "Stade", place: "Abholung Lager", soldAt: lastMonth(19), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0007", serial: "DEMO-NB-G30LP-2277", manufacturer: "Segway-Ninebot", model: "KickScooter MAX G30LP", color: "Schwarz", mileageKm: 1890, purchaseCents: 19900, saleCents: 44900, repairCents: 1490, channel: "SHOPIFY", source: "GOOGLE", region: "Lübeck", place: "Versand", soldAt: monthsAgo(2, 21), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0006", serial: "DEMO-XM-PRO2-9041", manufacturer: "Xiaomi", model: "Mi Scooter Pro 2", color: "Schwarz", mileageKm: 2450, purchaseCents: 14900, saleCents: 32900, repairCents: 2190, channel: "KLEINANZEIGEN", source: "KLEINANZEIGEN", region: "Winsen", place: "Abholung Lager", soldAt: monthsAgo(2, 9), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0005", serial: "DEMO-TRB-PAUL-5590", manufacturer: "Trittbrett", model: "Paul", color: "Creme", mileageKm: 180, purchaseCents: 41900, saleCents: 89900, repairCents: 0, channel: "VOR_ORT", source: "EMPFEHLUNG", region: "Hamburg", place: "Ladenlokal", soldAt: monthsAgo(3, 27), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0004", serial: "DEMO-NIU-KQI3M-3318", manufacturer: "NIU", model: "KQi3 Max", color: "Grau", mileageKm: 640, purchaseCents: 29900, saleCents: 64900, repairCents: 890, channel: "SHOPIFY", source: "SOCIAL_MEDIA", region: "Rostock", place: "Versand", soldAt: monthsAgo(3, 12), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0003", serial: "DEMO-EGR-ONE-8802", manufacturer: "Egret", model: "One V4", color: "Schwarz", mileageKm: 920, purchaseCents: 36900, saleCents: 78900, repairCents: 1690, channel: "SHOPIFY", source: "WEBSITE", region: "Hamburg", place: "Abholung Lager", soldAt: monthsAgo(4, 24), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0002", serial: "DEMO-XM4-6613", manufacturer: "Xiaomi", model: "Electric Scooter 4", color: "Weiß", mileageKm: 1120, purchaseCents: 20900, saleCents: 45900, repairCents: 0, channel: "TELEFON", source: "EMPFEHLUNG", region: "Pinneberg", place: "Versand", soldAt: monthsAgo(4, 6), sheets: "SYNCHRONISIERT" },
+  { number: "SK-2026-0001", serial: "DEMO-NB-F30-1150", manufacturer: "Segway-Ninebot", model: "KickScooter F30", color: "Grau", mileageKm: 2010, purchaseCents: 16900, saleCents: 36900, repairCents: 990, channel: "KLEINANZEIGEN", source: "KLEINANZEIGEN", region: "Buxtehude", place: "Abholung Lager", soldAt: monthsAgo(5, 18), sheets: "SYNCHRONISIERT" },
 ]
 
 /* ------------------------------------------------------------------ */
@@ -553,7 +575,10 @@ function buildScooter(spec: ScooterSpec, index: number): Scooter {
   }
 }
 
-function buildSoldScooter(spec: SoldSpec): { scooter: Scooter; sale: Sale } {
+function buildSoldScooter(
+  spec: SoldSpec,
+  index: number
+): { scooter: Scooter; sale: Sale } {
   const label = `${spec.manufacturer} ${spec.model}`
   const inspection = buildInspection("bestanden", 40)
 
@@ -617,6 +642,9 @@ function buildSoldScooter(spec: SoldSpec): { scooter: Scooter; sale: Sale } {
     modelLabel: modelLabel(scooter),
     serialNumber: scooter.serialNumber,
     channel: spec.channel,
+    customerSource: spec.source,
+    customerRegion: spec.region,
+    saleLocation: spec.place,
     salePriceCents: spec.saleCents,
     purchasePriceCents: spec.purchaseCents,
     repairCostsCents: repairCostsCents(scooter),
@@ -629,6 +657,8 @@ function buildSoldScooter(spec: SoldSpec): { scooter: Scooter; sale: Sale } {
       spec.sheets === "FEHLER"
         ? "Google Sheets API nicht erreichbar. Zeile wurde nicht geschrieben."
         : null,
+    // Zeile 1 ist die Kopfzeile der Umsatztabelle.
+    sheetsRowNumber: spec.sheets === "SYNCHRONISIERT" ? index + 2 : null,
     createdAt: spec.soldAt,
   }
 
