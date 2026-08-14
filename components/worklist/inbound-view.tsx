@@ -185,7 +185,7 @@ export function InboundView() {
           action={
             <Link
               href="/import"
-              className="rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-gold"
+              className="rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent"
             >
               Neuer Import
             </Link>

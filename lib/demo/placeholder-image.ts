@@ -40,13 +40,13 @@ export function createPlaceholderImage(
       <stop offset="100%" stop-color="#0b0c0e"/>
     </linearGradient>
     <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#c8a45a"/>
+      <stop offset="0%" stop-color="#8ee506"/>
       <stop offset="55%" stop-color="#8d8f95"/>
       <stop offset="100%" stop-color="#4a4f57"/>
     </linearGradient>
     <radialGradient id="glow" cx="50%" cy="42%" r="55%">
-      <stop offset="0%" stop-color="#c8a45a" stop-opacity="${glow}"/>
-      <stop offset="100%" stop-color="#c8a45a" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#8ee506" stop-opacity="${glow}"/>
+      <stop offset="100%" stop-color="#8ee506" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect width="800" height="600" fill="url(#bg)"/>

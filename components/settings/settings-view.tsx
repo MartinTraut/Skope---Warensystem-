@@ -249,7 +249,7 @@ export function SettingsView() {
                   "Kleinanzeigen: nur interner Status, keine Automatik",
                 ].map((entry) => (
                   <li key={entry} className="flex gap-2">
-                    <span className="mt-1.5 size-1 shrink-0 rounded-full bg-skope-gold" />
+                    <span className="mt-1.5 size-1 shrink-0 rounded-full bg-skope-accent" />
                     {entry}
                   </li>
                 ))}

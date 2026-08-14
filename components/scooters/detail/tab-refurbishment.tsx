@@ -359,14 +359,26 @@ function RepairDialog({
       return
     }
 
-    await repositories.scooters.addRepair(scooter.id, {
-      problem: problem.trim(),
-      action: action.trim(),
-      sparePart: sparePart.trim(),
-      partCostCents: parseCents(cost) ?? 0,
-      laborMinutes: Number.parseInt(minutes, 10) || 0,
-      status,
-    })
+    /*
+      Der Dialog schließt erst, wenn die Reparatur wirklich angelegt ist.
+
+      Vorher wurde das Ergebnis verworfen, der Dialog ging zu und der Toast
+      meldete Erfolg — bei einem Fehler waren die eingetippten Kosten weg und
+      die Marge stillschweigend falsch. Jetzt bleibt das Formular mit seinen
+      Eingaben stehen, damit ein zweiter Versuch nichts kostet.
+    */
+    const created = await runAction(
+      repositories.scooters.addRepair(scooter.id, {
+        problem: problem.trim(),
+        action: action.trim(),
+        sparePart: sparePart.trim(),
+        partCostCents: parseCents(cost) ?? 0,
+        laborMinutes: Number.parseInt(minutes, 10) || 0,
+        status,
+      }),
+      { failure: "Reparatur nicht angelegt" }
+    )
+    if (!created) return
 
     onOpenChange(false)
     reset()
@@ -382,6 +394,13 @@ function RepairDialog({
         onOpenChange(next)
         if (!next) window.setTimeout(reset, 200)
       }}
+      dirty={Boolean(
+        problem.trim() ||
+          action.trim() ||
+          sparePart.trim() ||
+          cost.trim() ||
+          minutes.trim()
+      )}
       title="Reparatur hinzufügen"
       description={`${scooter.scooterNumber} · ${scooter.manufacturer} ${scooter.model}`}
       footer={

@@ -153,14 +153,14 @@ export function ScooterListView() {
                 "flex h-11 items-center gap-2 rounded-lg border px-3 type-body-sm transition-colors lg:hidden",
                 FOCUS_RING,
                 activeFilters > 0
-                  ? "border-skope-gold/40 bg-skope-gold/8 text-skope-gold"
+                  ? "border-skope-accent/40 bg-skope-accent/8 text-skope-accent"
                   : "border-skope-line-strong text-muted-foreground hover:text-foreground"
               )}
             >
               <SlidersHorizontal className="size-4" />
               Filter
               {activeFilters > 0 && (
-                <span className="grid size-4 place-items-center rounded-full bg-skope-gold text-[10px] font-medium text-[#14100a]">
+                <span className="grid size-4 place-items-center rounded-full bg-skope-accent text-[10px] font-medium text-[#14100a]">
                   {activeFilters}
                 </span>
               )}

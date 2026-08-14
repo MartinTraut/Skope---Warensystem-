@@ -8,7 +8,7 @@ export default function NotFound() {
   return (
     <main className="grid min-h-svh place-items-center px-6">
       <div className="max-w-lg text-center">
-        <p className="type-label text-skope-gold">Fehler 404</p>
+        <p className="type-label text-skope-accent">Fehler 404</p>
         <h1 className="type-page-title mt-3 text-foreground">
           Diese Seite gibt es nicht
         </h1>

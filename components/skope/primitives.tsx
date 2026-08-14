@@ -13,15 +13,30 @@ import { cn } from "@/lib/utils"
 /* Panel                                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Farbliche Einordnung einer Karte.
+ *
+ * Nicht Dekoration: Der Ton sagt, was die Liste darunter bedeutet. „warn"
+ * steht für Arbeit, die noch ansteht, „error" für einen echten Störfall.
+ */
+export type PanelTone = "warn" | "error"
+
 interface PanelProps extends ComponentProps<"section"> {
-  /** Metallische Oberkante in Gold — nur für die wichtigste Karte je Ansicht. */
+  /** Metallische Oberkante im Markenton — nur für die wichtigste Karte je Ansicht. */
   accent?: boolean
+  tone?: PanelTone
 }
 
-export function Panel({ className, accent, ...props }: PanelProps) {
+export function Panel({ className, accent, tone, ...props }: PanelProps) {
   return (
     <section
-      className={cn("skope-panel", accent && "skope-panel-accent", className)}
+      className={cn(
+        "skope-panel",
+        accent && "skope-panel-accent",
+        tone === "warn" && "skope-panel-warn",
+        tone === "error" && "skope-panel-error",
+        className
+      )}
       {...props}
     />
   )
@@ -31,6 +46,9 @@ interface PanelHeaderProps {
   title: ReactNode
   description?: ReactNode
   action?: ReactNode
+  /** Symbol links vom Titel. Trägt zusammen mit `tone` die Einordnung. */
+  icon?: ReactNode
+  tone?: PanelTone
   className?: string
 }
 
@@ -38,20 +56,62 @@ export function PanelHeader({
   title,
   description,
   action,
+  icon,
+  tone,
   className,
 }: PanelHeaderProps) {
   return (
     <div
       className={cn(
         "flex flex-wrap items-start justify-between gap-3 border-b border-skope-line px-4 py-3.5 sm:px-5",
+        /*
+          Der gefärbte Kopf ist kein Schmuck, sondern der Unterschied zwischen
+          „hier ist eine Liste" und „hier ist eine Liste mit Problemen".
+          Deshalb die ganze Fläche und nicht nur der Titel.
+        */
+        tone === "warn" &&
+          "border-state-warn/25 bg-state-warn/8 text-state-warn",
+        tone === "error" &&
+          "border-state-error/25 bg-state-error/8 text-state-error",
         className
       )}
     >
-      <div className="min-w-0">
-        <h2 className="type-section text-foreground">{title}</h2>
-        {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <div className="flex min-w-0 items-start gap-3">
+        {icon && (
+          <span
+            className={cn(
+              "mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg",
+              tone === "warn" && "bg-state-warn/15 text-state-warn",
+              tone === "error" && "bg-state-error/15 text-state-error",
+              !tone && "bg-surface-raised text-muted-foreground"
+            )}
+            aria-hidden
+          >
+            {icon}
+          </span>
         )}
+        <div className="min-w-0">
+          <h2
+            className={cn(
+              "type-section",
+              tone ? "text-current" : "text-foreground"
+            )}
+          >
+            {title}
+          </h2>
+          {description && (
+            <p
+              className={cn(
+                "mt-1 text-sm",
+                // Abgeschwächt, aber im selben Ton — sonst zerfällt der Kopf
+                // in eine farbige und eine graue Hälfte.
+                tone ? "text-current/75" : "text-muted-foreground"
+              )}
+            >
+              {description}
+            </p>
+          )}
+        </div>
       </div>
       {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
     </div>
@@ -207,7 +267,7 @@ export function DemoTag({
     <span
       className={cn(
         // Bewusst neutral: Ein Meta-Hinweis trägt keine Handlung und soll
-        // dem Primärbutton und der Aktivnavigation den Goldakzent nicht
+        // dem Primärbutton und der Aktivnavigation den Markenakzent nicht
         // streitig machen.
         "inline-flex items-center rounded border border-skope-line-strong bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase",
         className
@@ -253,7 +313,7 @@ export function Metric({
           <span
             className={cn(
               "shrink-0 transition-colors duration-200",
-              accent ? "text-skope-gold" : "text-muted-foreground/60 group-hover:text-muted-foreground"
+              accent ? "text-skope-accent" : "text-muted-foreground/60 group-hover:text-muted-foreground"
             )}
             aria-hidden
           >
@@ -264,7 +324,7 @@ export function Metric({
       <p
         className={cn(
           "type-metric mt-3",
-          accent ? "text-skope-gold" : "text-foreground"
+          accent ? "text-skope-accent" : "text-foreground"
         )}
       >
         {value}

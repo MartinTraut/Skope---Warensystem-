@@ -66,7 +66,7 @@ export function ScooterDetailView({ scooterId }: { scooterId: string }) {
           action={
             <Link
               href="/scooters"
-              className="inline-flex h-10 items-center rounded-lg border border-skope-line-strong px-4 text-sm transition-colors hover:border-skope-gold/40 hover:text-skope-gold"
+              className="inline-flex h-10 items-center rounded-lg border border-skope-line-strong px-4 text-sm transition-colors hover:border-skope-accent/40 hover:text-skope-accent"
             >
               Zur Bestandsliste
             </Link>
@@ -82,7 +82,7 @@ export function ScooterDetailView({ scooterId }: { scooterId: string }) {
     <div className="space-y-6">
       <Link
         href="/scooters"
-        className="inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+        className="inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
       >
         <ArrowLeft className="size-3.5" />
         Zurück zum Bestand
@@ -91,7 +91,7 @@ export function ScooterDetailView({ scooterId }: { scooterId: string }) {
       {/* Kopf */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="font-mono text-sm text-skope-gold">
+          <p className="font-mono text-sm text-skope-accent">
             {scooter.scooterNumber}
           </p>
           <h1 className="type-page-title mt-1 text-foreground">
@@ -152,7 +152,7 @@ export function ScooterDetailView({ scooterId }: { scooterId: string }) {
                 onClick={() => setTab(entry.key)}
                 className={cn(
                   "relative flex h-11 items-center gap-2 px-3.5 text-sm whitespace-nowrap transition-colors duration-150",
-                  "focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none",
+                  "focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
                   active
                     ? "font-medium text-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -175,7 +175,7 @@ export function ScooterDetailView({ scooterId }: { scooterId: string }) {
                 )}
                 {active && (
                   <span
-                    className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-skope-gold"
+                    className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-skope-accent"
                     aria-hidden
                   />
                 )}

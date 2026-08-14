@@ -10,7 +10,7 @@
  * festgelegt wird.
  */
 export const FOCUS_RING =
-  "focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+  "focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
 
 /**
  * Mindestgröße für alles, was angetippt wird.

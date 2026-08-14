@@ -86,14 +86,22 @@ export function TabOverview({ scooter }: { scooter: Scooter }) {
                 Noch keine technischen Daten hinterlegt.
               </p>
             ) : (
-              <dl className="divide-y divide-skope-line">
+              /*
+                Kacheln statt Zeilen.
+
+                Vorher stand die Bezeichnung ganz links und der Wert ganz
+                rechts — über die volle Panelbreite lagen bis zu 60 cm
+                zwischen beiden, und das Auge musste die Zeile halten. In der
+                Kachel steht der Wert direkt unter seiner Bezeichnung.
+              */
+              <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {scooter.technicalData.map((spec) => (
                   <div
                     key={spec.key}
-                    className="flex items-baseline justify-between gap-6 py-2.5 first:pt-0 last:pb-0"
+                    className="min-w-0 rounded-lg border border-skope-line bg-surface-sunken px-3.5 py-3"
                   >
-                    <dt className="text-sm text-muted-foreground">{spec.key}</dt>
-                    <dd className="text-sm font-medium text-foreground">
+                    <dt className="type-label">{spec.key}</dt>
+                    <dd className="mt-1.5 truncate text-base font-medium text-foreground">
                       {spec.value}
                     </dd>
                   </div>

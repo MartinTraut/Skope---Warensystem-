@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ClipboardCheck } from "lucide-react"
+import { AlertTriangle, ClipboardCheck } from "lucide-react"
 
 import { MiniProgress, WorkRow } from "./work-row"
 import {
@@ -101,7 +101,7 @@ export function InspectionView() {
                   meta={
                     <MiniProgress
                       value={progress.percent}
-                      tone={progress.problems > 0 ? "warn" : "gold"}
+                      tone={progress.problems > 0 ? "warn" : "accent"}
                       label={`${progress.checked} / ${progress.total} geprüft${
                         progress.problems > 0
                           ? ` · ${progress.problems} mit Problem`
@@ -125,10 +125,18 @@ export function InspectionView() {
       </Panel>
 
       {withProblems.length > 0 && (
-        <Panel className="overflow-hidden">
+        <Panel tone="warn" className="overflow-hidden">
           <PanelHeader
+            tone="warn"
+            icon={<AlertTriangle className="size-4" />}
             title="Dokumentierte Mängel"
             description="Diese Geräte brauchen eine Reparatur, bevor sie freigegeben werden können."
+            action={
+              <span className="rounded-full border border-state-warn/30 bg-state-warn/12 px-3 py-1 text-sm font-medium tabular-nums text-state-warn">
+                {withProblems.length}{" "}
+                {withProblems.length === 1 ? "Gerät" : "Geräte"}
+              </span>
+            }
           />
           <ul className="divide-y divide-skope-line">
             {withProblems.map((scooter) => {

@@ -37,7 +37,7 @@ export function WorkRow({
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <Link
               href={`/scooters/${scooter.id}`}
-              className="rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+              className="rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
             >
               {scooter.scooterNumber}
             </Link>
@@ -83,11 +83,11 @@ export function WorkRow({
 export function MiniProgress({
   value,
   label,
-  tone = "gold",
+  tone = "accent",
 }: {
   value: number
   label: string
-  tone?: "gold" | "warn" | "ready"
+  tone?: "accent" | "warn" | "ready"
 }) {
   return (
     <div className="flex items-center gap-2.5">
@@ -99,7 +99,7 @@ export function MiniProgress({
               ? "bg-state-warn"
               : tone === "ready"
                 ? "bg-state-ready"
-                : "bg-skope-gold"
+                : "bg-skope-accent"
           )}
           style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
         />

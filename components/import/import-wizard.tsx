@@ -318,7 +318,7 @@ function StepIndicator({ current }: { current: StepKey }) {
               className={cn(
                 "flex h-9 items-center gap-2 rounded-lg border px-3 type-body-sm transition-colors",
                 active
-                  ? "border-skope-gold/40 bg-skope-gold/10 font-medium text-skope-gold"
+                  ? "border-skope-accent/40 bg-skope-accent/10 font-medium text-skope-accent"
                   : done
                     ? "border-skope-line bg-surface-sunken text-foreground/70"
                     : "border-skope-line text-muted-foreground/60"
@@ -328,7 +328,7 @@ function StepIndicator({ current }: { current: StepKey }) {
                 className={cn(
                   "grid size-4 shrink-0 place-items-center rounded-full text-[10px] font-medium",
                   active
-                    ? "bg-skope-gold text-[#14100a]"
+                    ? "bg-skope-accent text-[#14100a]"
                     : done
                       ? "bg-state-ready/20 text-state-ready"
                       : "bg-surface-track text-muted-foreground"
@@ -406,15 +406,15 @@ function FileStep({
             className={cn(
               "flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-12 text-center transition-colors duration-200",
               dragOver
-                ? "border-skope-gold/60 bg-skope-gold/8"
-                : "border-skope-line-strong hover:border-skope-gold/35 hover:bg-surface-sunken",
-              "focus-visible:border-skope-gold/60 focus-visible:ring-3 focus-visible:ring-skope-gold/15 focus-visible:outline-none"
+                ? "border-skope-accent/60 bg-skope-accent/8"
+                : "border-skope-line-strong hover:border-skope-accent/35 hover:bg-surface-sunken",
+              "focus-visible:border-skope-accent/60 focus-visible:ring-3 focus-visible:ring-skope-accent/15 focus-visible:outline-none"
             )}
           >
             <FileUp
               className={cn(
                 "size-7 transition-colors",
-                dragOver ? "text-skope-gold" : "text-muted-foreground"
+                dragOver ? "text-skope-accent" : "text-muted-foreground"
               )}
             />
             <p className="mt-4 text-sm font-medium text-foreground">
@@ -437,7 +437,7 @@ function FileStep({
         <PanelHeader
           title={
             <span className="flex items-center gap-2">
-              <Sparkles className="size-4 text-skope-gold" />
+              <Sparkles className="size-4 text-skope-accent" />
               Demo-Datei
             </span>
           }
@@ -466,6 +466,31 @@ function FileStep({
   )
 }
 
+/**
+ * Quellspalten, die mehr als ein Zielfeld füllen.
+ *
+ * Die Automatik vergibt jede Spalte nur einmal, von Hand ist das nicht
+ * verhindert. Unbemerkt wäre es teuer: „EK netto" auf Einkauf *und* Verkauf
+ * ergibt für jedes Gerät eine Marge von null — und niemand sucht den Fehler
+ * später im Import.
+ *
+ * Die Prüfung steht außerhalb des Schritts, weil sie an zwei Stellen gebraucht
+ * wird: für die Warnung im Schritt und für die Sperre am Weiter-Knopf.
+ */
+function findDuplicateColumns(
+  mapping: Record<ImportTargetField, string>
+): [string, ImportTargetField[]][] {
+  const byColumn = IMPORT_TARGET_FIELDS.filter(
+    (field) => mapping[field]
+  ).reduce<Record<string, ImportTargetField[]>>((acc, field) => {
+    const column = mapping[field]
+    acc[column] = [...(acc[column] ?? []), field]
+    return acc
+  }, {})
+
+  return Object.entries(byColumn).filter(([, fields]) => fields.length > 1)
+}
+
 function MappingStep({
   table,
   mapping,
@@ -481,62 +506,195 @@ function MappingStep({
   onBack: () => void
   onNext: () => void
 }) {
+  // Fehlt ein Pflichtfeld, wird die Bearbeitung erzwungen — dann hilft die
+  // Zusammenfassung nicht weiter, dann muss ausgewählt werden.
+  const [manualEdit, setManualEdit] = useState(false)
+
   const options = [
     { value: "", label: "— nicht zuordnen —" },
     ...table.headers.map((header) => ({ value: header, label: header })),
   ]
+
+  const sampleOf = (field: ImportTargetField) =>
+    mapping[field]
+      ? (table.rows.find((row) => row[mapping[field]])?.[mapping[field]] ?? "")
+      : ""
+
+  const mapped = IMPORT_TARGET_FIELDS.filter((field) => mapping[field])
+  /*
+    Nicht erkannt heißt nicht automatisch fehlerhaft: Eine Liste ohne
+    Farbspalte hat eben keine. Pflichtfelder sind der Sonderfall — die stehen
+    getrennt und in Warnfarbe.
+  */
+  const unresolved = IMPORT_TARGET_FIELDS.filter(
+    (field) => !mapping[field] && !REQUIRED_FIELDS.includes(field)
+  )
+
+  const duplicates = findDuplicateColumns(mapping)
+
+  const usedColumns = new Set(mapped.map((field) => mapping[field]))
+  const ignoredColumns = table.headers.filter(
+    (header) => !usedColumns.has(header)
+  )
+
+  /*
+    Fehlt ein Pflichtfeld oder ist eine Spalte doppelt vergeben, führt an der
+    Bearbeitung kein Weg vorbei — die Zusammenfassung hilft dann nicht weiter.
+  */
+  const blocked = missingRequired.length > 0 || duplicates.length > 0
+  const editing = manualEdit || blocked
 
   return (
     <Panel>
       <PanelHeader
         title="Spalten zuordnen"
         description={`${table.fileName} · ${table.headers.length} Spalten, ${table.rows.length} Zeilen`}
+        action={
+          !blocked ? (
+            <Button
+              variant="outline"
+              className="h-9 px-3.5"
+              onClick={() => setManualEdit(!manualEdit)}
+            >
+              {manualEdit ? "Fertig" : "Zuordnung ändern"}
+            </Button>
+          ) : null
+        }
       />
-      <PanelBody>
-        {missingRequired.length > 0 && (
-          <div className="mb-5 flex gap-2.5 rounded-lg border border-state-warn/25 bg-state-warn/8 p-3.5">
+      <PanelBody className="space-y-4">
+        {missingRequired.length > 0 ? (
+          <div className="flex gap-2.5 rounded-lg border border-state-warn/30 bg-state-warn/8 p-3.5">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-state-warn" />
             <p className="text-xs leading-relaxed text-foreground/85">
               Pflichtfelder ohne Zuordnung:{" "}
               <strong>
                 {missingRequired.map((field) => FIELD_LABELS[field]).join(", ")}
               </strong>
-              . Ohne sie kann kein Datensatz angelegt werden.
+              . Ohne sie kann kein Datensatz angelegt werden — bitte unten die
+              passende Spalte auswählen.
+            </p>
+          </div>
+        ) : (
+          /*
+            Der Regelfall ist eine Bestätigung, kein Formular.
+
+            Elf Auswahlfelder sehen aus wie elf Entscheidungen, obwohl das
+            System sie längst getroffen hat. Erkannt wird deshalb nur
+            berichtet; geändert wird auf Wunsch.
+          */
+          <div className="flex gap-2.5 rounded-lg border border-state-ready/28 bg-state-ready/8 p-3.5">
+            <Check className="mt-0.5 size-4 shrink-0 text-state-ready" />
+            <p className="text-xs leading-relaxed text-foreground/85">
+              <strong>
+                {mapped.length} von {IMPORT_TARGET_FIELDS.length} Feldern
+                automatisch erkannt
+              </strong>{" "}
+              — anhand der Spaltennamen der Datei. Prüfe die Beispielwerte; sie
+              stammen aus der ersten gefüllten Zeile.
             </p>
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {IMPORT_TARGET_FIELDS.map((field) => {
-            const required = REQUIRED_FIELDS.includes(field)
-            const sample = mapping[field]
-              ? (table.rows.find((row) => row[mapping[field]])?.[
-                  mapping[field]
-                ] ?? "")
-              : ""
+        {duplicates.length > 0 && (
+          <div className="flex gap-2.5 rounded-lg border border-state-error/30 bg-state-error/8 p-3.5">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-state-error" />
+            <div className="min-w-0 text-xs leading-relaxed text-foreground/85">
+              <p className="font-medium text-state-error">
+                Eine Spalte ist mehrfach vergeben
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {duplicates.map(([column, fields]) => (
+                  <li key={column}>
+                    <strong>{column}</strong> füllt{" "}
+                    {fields.map((field) => FIELD_LABELS[field]).join(" und ")} —
+                    beide Felder bekommen denselben Wert.
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5">
+                Der Import ist gesperrt, bis die Zuordnung eindeutig ist.
+              </p>
+            </div>
+          </div>
+        )}
 
-            return (
-              <div key={field} className="min-w-0">
-                <label className="mb-1.5 flex items-center gap-1 type-body-sm font-medium text-foreground/90">
-                  {FIELD_LABELS[field]}
-                  {required && <span className="text-skope-gold">*</span>}
-                </label>
-                <InlineSelect
-                  aria-label={`Quellspalte für ${FIELD_LABELS[field]}`}
-                  className="h-11"
-                  value={mapping[field]}
-                  onChange={(event) =>
-                    onChange({ ...mapping, [field]: event.target.value })
-                  }
-                  options={options}
-                />
-                <p className="mt-1.5 h-4 truncate text-xs text-muted-foreground">
-                  {sample ? `Beispiel: ${sample}` : ""}
-                </p>
-              </div>
-            )
-          })}
-        </div>
+        {editing ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {IMPORT_TARGET_FIELDS.map((field) => {
+              const required = REQUIRED_FIELDS.includes(field)
+              const sample = sampleOf(field)
+              const missing = required && !mapping[field]
+
+              return (
+                <div key={field} className="min-w-0">
+                  <label className="mb-1.5 flex items-center gap-1 type-body-sm font-medium text-foreground/90">
+                    {FIELD_LABELS[field]}
+                    {required && <span className="text-skope-accent">*</span>}
+                  </label>
+                  <InlineSelect
+                    aria-label={`Quellspalte für ${FIELD_LABELS[field]}`}
+                    className={cn("h-11", missing && "border-state-warn/50")}
+                    value={mapping[field]}
+                    onChange={(event) =>
+                      onChange({ ...mapping, [field]: event.target.value })
+                    }
+                    options={options}
+                  />
+                  <p className="mt-1.5 h-4 truncate text-xs text-muted-foreground">
+                    {sample ? `Beispiel: ${sample}` : ""}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <>
+            <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {mapped.map((field) => (
+                <li
+                  key={field}
+                  className="min-w-0 rounded-lg border border-skope-line bg-surface-sunken px-3.5 py-2.5"
+                >
+                  <p className="flex items-center gap-1.5 type-label">
+                    {FIELD_LABELS[field]}
+                    {REQUIRED_FIELDS.includes(field) && (
+                      <span className="text-skope-accent">*</span>
+                    )}
+                  </p>
+                  {/*
+                    Die Quellspalte ist die eigentliche Aussage, der
+                    Beispielwert die Kontrolle. Deshalb steht die Spalte groß
+                    und der Wert klein darunter — nicht umgekehrt.
+                  */}
+                  <p className="mt-1 truncate text-sm font-medium text-foreground">
+                    {mapping[field]}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {sampleOf(field) || "keine Beispieldaten"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+
+            {unresolved.length > 0 && (
+              <p className="type-caption leading-relaxed text-muted-foreground">
+                Ohne Zuordnung:{" "}
+                {unresolved.map((field) => FIELD_LABELS[field]).join(", ")}. Die
+                Felder bleiben leer — über {"„"}Zuordnung ändern{"“"} lassen
+                sie sich nachtragen.
+              </p>
+            )}
+
+            {ignoredColumns.length > 0 && (
+              <p className="type-caption leading-relaxed text-muted-foreground">
+                {ignoredColumns.length === 1
+                  ? "Eine Spalte der Datei wird nicht übernommen: "
+                  : `${ignoredColumns.length} Spalten der Datei werden nicht übernommen: `}
+                {ignoredColumns.join(", ")}.
+              </p>
+            )}
+          </>
+        )}
       </PanelBody>
 
       <WizardFooter
@@ -544,7 +702,7 @@ function MappingStep({
         backLabel="Andere Datei"
         onNext={onNext}
         nextLabel="Vorschau"
-        nextDisabled={missingRequired.length > 0}
+        nextDisabled={missingRequired.length > 0 || duplicates.length > 0}
       />
     </Panel>
   )

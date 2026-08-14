@@ -16,7 +16,7 @@ import { createJSONStorage, persist } from "zustand/middleware"
 
 import {
   createGuardedStorage,
-  reportPersistenceProblem,
+  reportPersistenceProblem
 } from "./persistence-status"
 
 import { createSeedData } from "@/lib/demo/seed"
@@ -28,11 +28,19 @@ import type {
   IntegrationState,
   Sale,
   SaleChannel,
-  Scooter,
+  Scooter
 } from "@/lib/domain/types"
 
 const STORAGE_KEY = "skope-cockpit-demo"
-const STORAGE_VERSION = 3
+/*
+  Version 4: Das Diagramm zeigt mehrere Kennzahlen gleichzeitig, aus
+  `chartPrefs.measure` wurde `chartPrefs.measures`.
+
+  Die Zahl muss bei jeder Änderung am gespeicherten Aufbau mitwachsen —
+  sonst läuft `migrate` nicht, der alte Stand wird unverändert geladen und
+  die Oberfläche greift auf ein Feld zu, das es dort nie gab.
+*/
+const STORAGE_VERSION = 4
 
 /** Version der Sicherungsdatei. Wandert mit dem Datenmodell mit. */
 export const SNAPSHOT_VERSION = STORAGE_VERSION
@@ -88,11 +96,18 @@ export interface CockpitState {
 }
 
 /** Einstellbare Ansicht der Umsatzauswertung. */
+export const CHART_MEASURES = ["umsatz", "marge", "anzahl"] as const
+
+export type ChartMeasure = (typeof CHART_MEASURES)[number]
+
 export interface ChartPrefs {
   /** Betrachtungszeitraum in Monaten. */
   months: 3 | 6 | 12
-  /** Welche Größe die Balken zeigen. */
-  measure: "umsatz" | "marge" | "anzahl"
+  /**
+   * Welche Größen gleichzeitig dargestellt werden. Nie leer — die erste ist
+   * die Leitgröße, auf die sich Kopfzahl und Trend beziehen.
+   */
+  measures: ChartMeasure[]
   /** Darstellungsform. */
   shape: "gestapelt" | "balken" | "linie"
   /** Nur dieser Verkaufskanal, oder alle. */
@@ -100,7 +115,54 @@ export interface ChartPrefs {
 }
 
 function defaultChartPrefs(): ChartPrefs {
-  return { months: 6, measure: "umsatz", shape: "gestapelt", channel: "alle" }
+  return {
+    months: 6,
+    measures: ["umsatz"],
+    shape: "gestapelt",
+    channel: "alle"
+  }
+}
+
+/**
+ * Bis Version 4 konnte das Diagramm nur eine Größe zeigen (`measure`). Ein
+ * gespeicherter Stand von damals wird auf die Mehrfachauswahl gehoben, statt
+ * die Vorliebe stillschweigend auf den Standard zurückzusetzen.
+ */
+function migrateChartPrefs(
+  base: ChartPrefs,
+  stored: (Partial<ChartPrefs> & { measure?: ChartMeasure }) | undefined
+): ChartPrefs {
+  // Reihenfolge zählt: Zuerst der gespeicherte neue Wert, dann der alte
+  // Einzelwert, erst zuletzt der Standard. Würde man auf das mit `base`
+  // aufgefüllte Objekt prüfen, wäre `measures` immer gesetzt und die alte
+  // Vorliebe ginge stillschweigend verloren.
+  const { measure, ...rest } = stored ?? {}
+
+  /*
+    Der Inhalt wird geprüft, nicht nur die Länge.
+
+    Die alte Prüfung fragte `rest.measures?.length` und ließ damit alles
+    durch, was eine Länge hat — auch einen String und auch eine Kennzahl, die
+    es nicht (mehr) gibt. Ein Eintrag `measures: ["gewinn"]` aus einem anderen
+    Stand überlebte die Migration und ließ dann beim ersten Zugriff auf die
+    Beschreibung dieser Kennzahl die gesamte Dashboard-Seite werfen. Ein
+    gespeicherter Stand darf höchstens die Voreinstellung erzwingen, nie einen
+    Absturz.
+  */
+  const isMeasure = (value: unknown): value is ChartMeasure =>
+    typeof value === "string" &&
+    (CHART_MEASURES as readonly string[]).includes(value)
+
+  const validMeasures = Array.isArray(rest.measures)
+    ? rest.measures.filter(isMeasure)
+    : []
+  const measures = validMeasures.length
+    ? validMeasures
+    : isMeasure(measure)
+      ? [measure]
+      : base.measures
+
+  return { ...base, ...rest, measures }
 }
 
 function initialIntegrations(): IntegrationState {
@@ -108,14 +170,14 @@ function initialIntegrations(): IntegrationState {
     simulateShopifyError: false,
     simulateSheetsError: false,
     sheetsLastSyncAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
-    shopifyLastSyncAt: new Date(Date.now() - 1 * 3_600_000).toISOString(),
+    shopifyLastSyncAt: new Date(Date.now() - 1 * 3_600_000).toISOString()
   }
 }
 
 const DEMO_USER: CurrentUser = {
   name: "Martin Traut",
   role: "admin",
-  initials: "MT",
+  initials: "MT"
 }
 
 /** Damit die Aktivitätsliste nicht unbegrenzt wächst. */
@@ -135,7 +197,7 @@ function freshState() {
     savedMapping: null,
     user: DEMO_USER,
     sidebarCollapsed: false,
-    chartPrefs: defaultChartPrefs(),
+    chartPrefs: defaultChartPrefs()
   }
 }
 
@@ -157,7 +219,7 @@ export const useCockpitStore = create<CockpitState>()(
             scooter.id === id
               ? { ...scooter, ...patch, updatedAt: new Date().toISOString() }
               : scooter
-          ),
+          )
         })),
 
       updateScooter: (id, updater) =>
@@ -166,12 +228,12 @@ export const useCockpitStore = create<CockpitState>()(
             scooter.id === id
               ? { ...updater(scooter), updatedAt: new Date().toISOString() }
               : scooter
-          ),
+          )
         })),
 
       removeScooter: (id) =>
         set((state) => ({
-          scooters: state.scooters.filter((scooter) => scooter.id !== id),
+          scooters: state.scooters.filter((scooter) => scooter.id !== id)
         })),
 
       addSale: (sale) => set((state) => ({ sales: [sale, ...state.sales] })),
@@ -180,14 +242,14 @@ export const useCockpitStore = create<CockpitState>()(
         set((state) => ({
           sales: state.sales.map((sale) =>
             sale.id === id ? { ...sale, ...patch } : sale
-          ),
+          )
         })),
 
       addActivity: (events) =>
         set((state) => ({
           activity: [...events, ...state.activity]
             .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-            .slice(0, MAX_ACTIVITY_ENTRIES),
+            .slice(0, MAX_ACTIVITY_ENTRIES)
         })),
 
       addImportBatch: (batch) =>
@@ -205,7 +267,7 @@ export const useCockpitStore = create<CockpitState>()(
 
       replaceAll: (data) => set({ ...data }),
 
-      resetDemoData: () => set({ ...freshState() }),
+      resetDemoData: () => set({ ...freshState() })
     }),
     {
       name: STORAGE_KEY,
@@ -221,7 +283,7 @@ export const useCockpitStore = create<CockpitState>()(
         savedMapping: state.savedMapping,
         user: state.user,
         sidebarCollapsed: state.sidebarCollapsed,
-        chartPrefs: state.chartPrefs,
+        chartPrefs: state.chartPrefs
       }),
       /**
        * Ohne `migrate` verwirft zustand einen Stand mit älterer Version
@@ -250,14 +312,14 @@ export const useCockpitStore = create<CockpitState>()(
             // "UNBEKANNT" ist die ehrliche Antwort, nicht ein geratener Kanal.
             customerSource: sale.customerSource ?? "UNBEKANNT",
             customerRegion: sale.customerRegion ?? "",
-            saleLocation: sale.saleLocation ?? "",
+            saleLocation: sale.saleLocation ?? ""
           })),
           scooters: state.scooters ?? base.scooters,
           activity: state.activity ?? [],
           importBatches: state.importBatches ?? [],
           sidebarCollapsed: state.sidebarCollapsed ?? false,
-          chartPrefs: { ...base.chartPrefs, ...state.chartPrefs },
-          savedMapping: state.savedMapping ?? null,
+          chartPrefs: migrateChartPrefs(base.chartPrefs, state.chartPrefs),
+          savedMapping: state.savedMapping ?? null
         }
       },
       onRehydrateStorage: () => (_state, error) => {
@@ -267,9 +329,9 @@ export const useCockpitStore = create<CockpitState>()(
           message:
             "Der gespeicherte Stand konnte nicht geladen werden. Es wird mit dem " +
             "Beispielbestand weitergearbeitet. Details: " +
-            (error instanceof Error ? error.message : String(error)),
+            (error instanceof Error ? error.message : String(error))
         })
-      },
+      }
     }
   )
 )

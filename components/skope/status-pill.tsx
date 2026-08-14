@@ -7,7 +7,7 @@ import type { StatusTone } from "@/lib/domain/status"
  * Einheitliche Statusdarstellung.
  *
  * Genau eine Komponente für alle Status im System — dadurch bedeutet dieselbe
- * Farbe überall dasselbe. Gold ist ausschließlich für laufende Vorgänge
+ * Farbe überall dasselbe. Das Markengrün ist ausschließlich für laufende Vorgänge
  * reserviert und wird nicht dekorativ verteilt.
  */
 
@@ -19,7 +19,7 @@ import type { StatusTone } from "@/lib/domain/status"
 const TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "border-white/12 bg-surface-raised text-muted-foreground",
   info: "border-state-info/45 bg-state-info/18 text-state-info",
-  progress: "border-skope-gold/50 bg-skope-gold/18 text-skope-gold",
+  progress: "border-skope-accent/50 bg-skope-accent/18 text-skope-accent",
   ready: "border-state-ready/45 bg-state-ready/18 text-state-ready",
   live: "border-state-live/45 bg-state-live/18 text-state-live",
   warn: "border-state-warn/45 bg-state-warn/18 text-state-warn",
@@ -30,7 +30,7 @@ const TONE_CLASSES: Record<StatusTone, string> = {
 const DOT_CLASSES: Record<StatusTone, string> = {
   neutral: "bg-muted-foreground",
   info: "bg-state-info",
-  progress: "bg-skope-gold",
+  progress: "bg-skope-accent",
   ready: "bg-state-ready",
   live: "bg-state-live",
   warn: "bg-state-warn",

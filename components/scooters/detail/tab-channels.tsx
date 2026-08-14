@@ -252,6 +252,17 @@ function KleinanzeigenCard({ scooter }: { scooter: Scooter }) {
   const stillActive =
     listing.status !== "DEAKTIVIERT" &&
     listing.status !== "NICHT_VEROEFFENTLICHT"
+  /*
+    Dieselbe Freigabe wie bei Shopify.
+
+    Sie hing vorher nur an der Shopify-Karte, obwohl die Regel für beide
+    Kanäle gilt: Der Scooter ist entweder verkaufsfertig oder er ist es nicht
+    — wo das Angebot steht, ändert daran nichts. Der Klick lief hier auch
+    schon vorher in eine Ablehnung, aber erst nach dem Absenden; sichtbar war
+    davon nichts. Dass ein Kanal sperrt und der andere daneben offen aussieht,
+    liest sich als Fehler des Systems.
+  */
+  const ready = isReadyForSale(scooter)
 
   async function toggle(next: "publish" | "deactivate") {
     setBusy(true)
@@ -292,6 +303,15 @@ function KleinanzeigenCard({ scooter }: { scooter: Scooter }) {
 
         <ChannelFacts listing={listing} manual />
 
+        {!ready && !published && !sold && (
+          <p className="rounded-lg border border-state-warn/25 bg-state-warn/8 px-3 py-2.5 text-xs leading-relaxed text-foreground/85">
+            Der Scooter erfüllt noch nicht alle Voraussetzungen für den
+            Verkauf. Solange das so ist, lässt er sich auch hier nicht als
+            inseriert führen. Die offenen Punkte stehen im Reiter{" "}
+            {"„Übersicht“"} unter Freigabe.
+          </p>
+        )}
+
         {sold ? (
           stillActive ? (
             <div className="space-y-3">
@@ -331,7 +351,12 @@ function KleinanzeigenCard({ scooter }: { scooter: Scooter }) {
             ) : (
               <Button
                 className="h-10 px-4"
-                disabled={busy}
+                disabled={busy || !ready}
+                title={
+                  ready
+                    ? undefined
+                    : "Der Scooter ist noch nicht freigegeben — siehe Reiter „Übersicht“."
+                }
                 onClick={() => toggle("publish")}
               >
                 Als inseriert markieren
@@ -469,9 +494,9 @@ function SimulateOrderButton({ scooter }: { scooter: Scooter }) {
   }
 
   return (
-    <div className="mt-1 rounded-lg border border-dashed border-skope-gold/30 bg-skope-gold/4 p-3.5">
+    <div className="mt-1 rounded-lg border border-dashed border-skope-accent/30 bg-skope-accent/4 p-3.5">
       <div className="flex items-start gap-2.5">
-        <Zap className="mt-0.5 size-4 shrink-0 text-skope-gold" />
+        <Zap className="mt-0.5 size-4 shrink-0 text-skope-accent" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-xs font-medium text-foreground">
             Shopify-Verkauf simulieren

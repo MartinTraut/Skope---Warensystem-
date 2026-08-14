@@ -6,8 +6,8 @@
 
 /* =========================================================================
    SKOPE COCKPIT — DESIGN SYSTEM
-   Premium E-Mobility / Automotive. Dunkles Anthrazit, Gunmetal, warmes Gold.
-   Gold ist ein Akzent, keine Fläche.
+   Premium E-Mobility / Automotive. Dunkles Anthrazit, Gunmetal, Signalgrün
+   aus dem Logo. Das Grün ist ein Akzent, keine Fläche.
    ========================================================================= */
 
 @theme inline {
@@ -15,9 +15,9 @@
     --font-sans: var(--font-sans);
 
     /* SKOPE Brand */
-    --color-skope-gold: var(--skope-gold);
-    --color-skope-gold-dim: var(--skope-gold-dim);
-    --color-skope-gold-soft: var(--skope-gold-soft);
+    --color-skope-accent: var(--skope-accent);
+    --color-skope-accent-dim: var(--skope-accent-dim);
+    --color-skope-accent-soft: var(--skope-accent-soft);
     --color-skope-steel: var(--skope-steel);
     --color-skope-surface: var(--skope-surface);
     --color-skope-elevated: var(--skope-elevated);
@@ -36,6 +36,7 @@
     --color-state-warn: var(--state-warn);
     --color-state-error: var(--state-error);
     --color-state-done: var(--state-done);
+    --color-state-cost: var(--state-cost);
 
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -83,10 +84,17 @@
 .dark {
     --radius: 0.625rem;
 
-    /* Brand */
-    --skope-gold: #c8a45a;
-    --skope-gold-dim: #b99246;
-    --skope-gold-soft: #c8a45a1f;
+    /*
+     * Brand.
+     *
+     * Das Grün ist nicht gewählt, sondern aus dem Logo ausgelesen: Median
+     * aller Grünpixel der Originaldatei, #8ee506 (H 83°, S 95 %, L 46 %).
+     * `dim` ist derselbe Ton eine Stufe tiefer für Verläufe, `soft` die
+     * Flächenvariante für hinterlegte Zustände.
+     */
+    --skope-accent: #8ee506;
+    --skope-accent-dim: #6fb505;
+    --skope-accent-soft: #8ee5061f;
     --skope-steel: #9ba3ad;
     --skope-surface: #0d0e10;
     --skope-elevated: #121316;
@@ -123,11 +131,19 @@
     --state-neutral: #9aa4b0;
     --state-info: #3f9dff;
     --state-progress: #e2b452;
-    --state-ready: #10d693;
+    --state-ready: #06cfa6;
     --state-live: #12c9f2;
     --state-warn: #ffb01f;
     --state-error: #ff5b4e;
     --state-done: #a87dff;
+    /*
+     * Ausgaben im Diagramm.
+     *
+     * Bewusst nicht das Fehlerrot: Einkauf und Reparatur sind normale Kosten,
+     * kein Störfall. Der Ton ist deshalb dunkler und ruhiger — als Rot noch
+     * eindeutig, aber ohne Alarmwirkung.
+     */
+    --state-cost: #c2453c;
 
     /* shadcn Tokens */
     --background: #08090a;
@@ -137,8 +153,8 @@
     --card-foreground: #f1f3f6;
     --popover: #121316;
     --popover-foreground: #f1f3f6;
-    --primary: #c8a45a;
-    --primary-foreground: #14100a;
+    --primary: #8ee506;
+    --primary-foreground: #0c1400;
     --secondary: #191b1f;
     --secondary-foreground: #e8eaed;
     --muted: #16181c;
@@ -152,20 +168,20 @@
     --destructive: #d97066;
     --border: #1e2025;
     --input: #2a2d33;
-    --ring: #c8a45a99;
-    --chart-1: #c8a45a;
+    --ring: #8ee50699;
+    --chart-1: #8ee506;
     --chart-2: #9ba3ad;
     --chart-3: #6fbf9b;
     --chart-4: #7ea2c4;
     --chart-5: #4a4f57;
     --sidebar: #0a0b0d;
     --sidebar-foreground: #c6cad0;
-    --sidebar-primary: #c8a45a;
-    --sidebar-primary-foreground: #14100a;
+    --sidebar-primary: #8ee506;
+    --sidebar-primary-foreground: #0c1400;
     --sidebar-accent: #16181c;
     --sidebar-accent-foreground: #f2f4f6;
     --sidebar-border: #1e2025;
-    --sidebar-ring: #c8a45a99;
+    --sidebar-ring: #8ee50699;
 }
 
 @layer base {
@@ -185,7 +201,7 @@
         background-image:
             radial-gradient(
                 80rem 40rem at 15% -10%,
-                #c8a45a0a 0%,
+                #8ee5060a 0%,
                 transparent 60%
             ),
             radial-gradient(
@@ -256,6 +272,20 @@
         font-weight: 500;
     }
 
+    /*
+     * Leitkennzahl einer Auswertung — bewusst eine Stufe über allem anderen.
+     * Wer auf das Dashboard schaut, soll diese Zahl zuerst sehen und den Rest
+     * danach.
+     */
+    .type-metric-hero {
+        font-size: clamp(2.5rem, 3.2vw + 1.25rem, 4.25rem);
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        color: #fafbfc;
+    }
+
     .type-metric {
         font-size: clamp(1.5rem, 1vw + 1.2rem, 2rem);
         line-height: 1;
@@ -323,11 +353,63 @@
         background: linear-gradient(
             90deg,
             transparent,
-            var(--skope-gold) 25%,
-            var(--skope-gold) 75%,
+            var(--skope-accent) 25%,
+            var(--skope-accent) 75%,
             transparent
         );
         opacity: 0.55;
+    }
+
+    /*
+     * Eingefärbte Karte.
+     *
+     * Die Oberkante trägt den Ton, der Rahmen wird mitgezogen und der
+     * Untergrund bekommt einen Hauch davon: So ist die Karte schon im
+     * Augenwinkel von den neutralen Karten daneben zu unterscheiden,
+     * ohne dass der Inhalt an Lesbarkeit verliert.
+     */
+    .skope-panel-warn {
+        border-color: color-mix(in srgb, var(--state-warn) 28%, transparent);
+        background:
+            linear-gradient(
+                180deg,
+                color-mix(in srgb, var(--state-warn) 7%, transparent),
+                transparent 42%
+            ),
+            linear-gradient(180deg, #101115 0%, #0c0d10 100%);
+    }
+
+    .skope-panel-warn::before {
+        background: linear-gradient(
+            90deg,
+            transparent,
+            var(--state-warn) 20%,
+            var(--state-warn) 80%,
+            transparent
+        );
+        opacity: 0.7;
+    }
+
+    .skope-panel-error {
+        border-color: color-mix(in srgb, var(--state-error) 28%, transparent);
+        background:
+            linear-gradient(
+                180deg,
+                color-mix(in srgb, var(--state-error) 7%, transparent),
+                transparent 42%
+            ),
+            linear-gradient(180deg, #101115 0%, #0c0d10 100%);
+    }
+
+    .skope-panel-error::before {
+        background: linear-gradient(
+            90deg,
+            transparent,
+            var(--state-error) 20%,
+            var(--state-error) 80%,
+            transparent
+        );
+        opacity: 0.7;
     }
 
     .skope-hairline {
@@ -370,6 +452,45 @@
 
     .animate-pulse-soft {
         animation: skope-pulse-soft 1.8s ease-in-out infinite;
+    }
+
+    /*
+      Diagramme. Balken wachsen aus der Grundlinie, die Verlaufslinie
+      zeichnet sich einmal. Beides läuft nur beim Eintreten und endet —
+      ein dauernd zappelndes Dashboard liest sich niemand gern an.
+    */
+    @keyframes skope-bar-rise {
+        from {
+            transform: scaleY(0);
+        }
+        to {
+            transform: scaleY(1);
+        }
+    }
+
+    .animate-bar-rise {
+        transform-origin: bottom;
+        animation: skope-bar-rise 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+
+    /*
+     * Kurve von links freilegen.
+     *
+     * Ersetzt die frühere Strichel-Animation: Die brauchte die Pfadlänge als
+     * feste Zahl im Code, und sobald die echte Kurve länger war, wiederholte
+     * sich das Muster und der Anfang der Linie blieb unsichtbar.
+     */
+    @keyframes skope-line-reveal {
+        from {
+            clip-path: inset(0 100% 0 0);
+        }
+        to {
+            clip-path: inset(0 0 0 0);
+        }
+    }
+
+    .animate-line-reveal {
+        animation: skope-line-reveal 640ms cubic-bezier(0.33, 0.9, 0.4, 1) both;
     }
 
     .text-gradient-steel {

@@ -106,6 +106,12 @@ export function EditScooterDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
+      /*
+        Verglichen wird gegen den Stand beim Öffnen: Wer nur hineinschaut und
+        wieder schließt, soll nicht gefragt werden — wer etwas geändert hat,
+        schon.
+      */
+      dirty={JSON.stringify(form) !== JSON.stringify(toForm(scooter))}
       title="Scooter bearbeiten"
       description={scooter.scooterNumber}
       size="lg"

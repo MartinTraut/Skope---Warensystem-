@@ -8,6 +8,7 @@ import { Panel, PanelBody, PanelHeader } from "@/components/skope/primitives"
 import { StatusPill } from "@/components/skope/status-pill"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import { runAction } from "@/lib/data/run-action"
 import { formatDateTime } from "@/lib/domain/money"
 import {
   INSPECTION_CHECKS,
@@ -34,19 +35,33 @@ export function TabInspection({ scooter }: { scooter: Scooter }) {
   const completed = scooter.inspection.completedAt !== null
   const locked = completed || scooter.saleStatus === "VERKAUFT"
 
+  /*
+    Jede Eingabe wird auf ihr Ergebnis geprüft.
+
+    Vorher lief beides ins Leere: Schlug das Speichern fehl, sprang die
+    Schaltfläche zurück und sonst geschah nichts. Genau hier ist das am
+    teuersten — wer mit Handschuhen ein Protokoll abarbeitet, sieht den
+    Rücksprung nicht und hält den Punkt für erledigt.
+  */
   async function setResult(checkKey: string, result: InspectionResult) {
     if (locked) return
-    await repositories.scooters.setInspectionCheck(scooter.id, checkKey, result)
+    await runAction(
+      repositories.scooters.setInspectionCheck(scooter.id, checkKey, result),
+      { failure: "Prüfpunkt nicht gespeichert" }
+    )
   }
 
   async function setNote(checkKey: string, note: string) {
     if (locked) return
     const check = scooter.inspection.checks.find((c) => c.key === checkKey)
-    await repositories.scooters.setInspectionCheck(
-      scooter.id,
-      checkKey,
-      check?.result ?? "NICHT_GEPRUEFT",
-      note
+    await runAction(
+      repositories.scooters.setInspectionCheck(
+        scooter.id,
+        checkKey,
+        check?.result ?? "NICHT_GEPRUEFT",
+        note
+      ),
+      { failure: "Notiz nicht gespeichert" }
     )
   }
 
@@ -137,7 +152,7 @@ export function TabInspection({ scooter }: { scooter: Scooter }) {
             <div
               className={cn(
                 "h-full rounded-full transition-[width] duration-300",
-                progress.problems > 0 ? "bg-state-warn" : "bg-skope-gold"
+                progress.problems > 0 ? "bg-state-warn" : "bg-skope-accent"
               )}
               style={{ width: `${progress.percent}%` }}
             />
@@ -176,7 +191,7 @@ export function TabInspection({ scooter }: { scooter: Scooter }) {
                             {definition.label}
                             {definition.critical && (
                               <span
-                                className="ml-1.5 text-skope-gold"
+                                className="ml-1.5 text-skope-accent"
                                 title="Pflichtprüfpunkt"
                               >
                                 *
@@ -227,7 +242,7 @@ export function TabInspection({ scooter }: { scooter: Scooter }) {
             className={cn(
               "w-full resize-y rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 py-2.5 text-sm leading-relaxed",
               "text-foreground placeholder:text-muted-foreground/70",
-              "focus:border-skope-gold/60 focus:ring-3 focus:ring-skope-gold/15 focus:outline-none",
+              "focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 focus:outline-none",
               "disabled:opacity-60"
             )}
           />
@@ -347,7 +362,7 @@ function NoteField({
       className={cn(
         "mt-3 h-11 w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm",
         "text-foreground placeholder:text-muted-foreground/70",
-        "focus:border-skope-gold/60 focus:ring-3 focus:ring-skope-gold/15 focus:outline-none",
+        "focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 focus:outline-none",
         "disabled:opacity-60"
       )}
     />

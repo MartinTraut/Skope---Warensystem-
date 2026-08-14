@@ -3,14 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  ChevronsLeft,
-  Menu,
-  PanelsTopLeft,
-  Plus,
-  Search,
-  X,
-} from "lucide-react"
+import { ChevronLeft, Menu, Plus, Search, X } from "lucide-react"
 
 import { SkopeLogo } from "@/components/brand/skope-logo"
 import { NAV_GROUPS, SETTINGS_ITEM, findNavItem, type NavItem } from "./nav-items"
@@ -45,6 +38,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [drawerOpen])
 
+  // Tastenkürzel für das Ein- und Ausklappen. Cmd/Strg + B ist die in
+  // Arbeitsoberflächen übliche Belegung; wer den ganzen Tag im System
+  // arbeitet, greift dafür nicht zur Maus.
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault()
+        setCollapsed(!collapsed)
+      }
+    }
+    window.addEventListener("keydown", handleKey)
+    return () => window.removeEventListener("keydown", handleKey)
+  }, [collapsed, setCollapsed])
+
   // Fokus in den Drawer holen und beim Schließen zum Auslöser zurückgeben —
   // sonst steht der Tastaturfokus hinter dem Overlay auf der verdeckten Seite.
   useEffect(() => {
@@ -66,11 +73,53 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           collapsed ? "w-[4.5rem]" : "w-64"
         )}
       >
-        <SidebarContent
-          collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed(!collapsed)}
-          onCreate={() => setCreateOpen(true)}
-        />
+        <SidebarContent collapsed={collapsed} onCreate={() => setCreateOpen(true)} />
+
+        {/*
+          Der Umschalter sitzt auf der Trennkante und nicht im Fuß der
+          Navigation: Dort unten, unterhalb der Benutzerzeile, hat ihn
+          zuverlässig niemand gefunden. Auf der Kante ist er sichtbar,
+          erklärt sich durch die Richtung des Pfeils von selbst und stört
+          die Mitte der Marke nicht.
+        */}
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
+          aria-expanded={!collapsed}
+          aria-keyshortcuts="Control+B Meta+B"
+          title={`${collapsed ? "Ausklappen" : "Einklappen"} · ⌘B`}
+          className={cn(
+            /*
+              Mittig auf der Trennkante, 36 px im Durchmesser.
+              Der Vorgänger war 24 px groß und in Grau auf dunklem Grund kaum
+              zu sehen — der Knopf war zwar da, aber niemand fand ihn.
+            */
+            "absolute top-[3.25rem] -right-[1.125rem] z-50 grid size-9 place-items-center rounded-full",
+            "group border border-skope-line-strong bg-sidebar text-foreground",
+            "shadow-[0_2px_10px_rgba(0,0,0,0.45)]",
+            "transition-[color,border-color,transform] duration-150",
+            "hover:scale-105 hover:border-skope-accent/60 hover:text-skope-accent",
+            FOCUS_RING
+          )}
+        >
+          {/*
+            Deckende Grundfläche über der Trennlinie, darauf der Markenton
+            beim Überfahren. Zwei Schichten, weil eine durchscheinende Färbung
+            allein die Linie darunter durchschimmern ließe.
+          */}
+          <span
+            className="absolute inset-px rounded-full bg-sidebar transition-colors duration-150 group-hover:bg-skope-accent/12"
+            aria-hidden
+          />
+          <ChevronLeft
+            className={cn(
+              "relative size-4 transition-transform duration-300 ease-out",
+              collapsed && "rotate-180"
+            )}
+            aria-hidden
+          />
+        </button>
       </aside>
 
       {/*
@@ -141,13 +190,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function SidebarContent({
   collapsed,
-  onToggleCollapse,
   onClose,
   onCreate,
   onNavigate,
 }: {
   collapsed: boolean
-  onToggleCollapse?: () => void
   onClose?: () => void
   onCreate: () => void
   /** Im mobilen Drawer: schließt die Navigation nach der Auswahl. */
@@ -166,19 +213,24 @@ function SidebarContent({
 
   return (
     <>
+      {/*
+        Die Marke steht mittig über der Navigation, nicht links angeschlagen.
+        Der Schließen-Knopf des mobilen Drawers liegt absolut darüber, damit
+        er die Mitte nicht verschiebt.
+      */}
       <div
         className={cn(
-          "flex h-16 shrink-0 items-center border-b border-skope-line",
-          collapsed ? "justify-center px-3" : "justify-between px-5"
+          "relative flex h-16 shrink-0 items-center justify-center border-b border-skope-line",
+          collapsed ? "px-2" : "px-5"
         )}
       >
         <Link
           href="/dashboard"
           onClick={onNavigate}
-          className="flex items-center rounded-md focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+          className="flex min-w-0 items-center justify-center rounded-md focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
           aria-label="SKOPE Cockpit — zum Dashboard"
         >
-          <SkopeLogo height={collapsed ? 36 : 48} compact={collapsed} />
+          <SkopeLogo height={collapsed ? 34 : 46} compact={collapsed} />
         </Link>
         {onClose && (
           <button
@@ -186,8 +238,8 @@ function SidebarContent({
             onClick={onClose}
             aria-label="Navigation schließen"
             className={cn(
-              "grid size-11 place-items-center rounded-lg text-muted-foreground transition-colors",
-              "hover:bg-surface-raised hover:text-foreground",
+              "absolute top-1/2 right-2 grid size-11 -translate-y-1/2 place-items-center rounded-lg",
+              "text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground",
               FOCUS_RING
             )}
           >
@@ -250,7 +302,7 @@ function SidebarContent({
           )}
         >
           <span
-            className="grid size-8 shrink-0 place-items-center rounded-full border border-skope-gold/30 bg-skope-gold/10 type-caption font-medium text-skope-gold"
+            className="grid size-8 shrink-0 place-items-center rounded-full border border-skope-accent/30 bg-skope-accent/10 type-caption font-medium text-skope-accent"
             aria-hidden
           >
             {user.initials}
@@ -267,28 +319,6 @@ function SidebarContent({
             </div>
           )}
         </div>
-
-        {onToggleCollapse && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={collapsed ? "Navigation ausklappen" : "Navigation einklappen"}
-            className={cn(
-              "mt-1 flex h-11 w-full items-center gap-3 rounded-lg px-3 type-body-sm text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground",
-              FOCUS_RING,
-              collapsed && "justify-center px-0"
-            )}
-          >
-            {collapsed ? (
-              <PanelsTopLeft className="size-4" />
-            ) : (
-              <>
-                <ChevronsLeft className="size-4" />
-                Einklappen
-              </>
-            )}
-          </button>
-        )}
       </div>
     </>
   )
@@ -329,9 +359,9 @@ function NavLink({
       aria-current={active ? "page" : undefined}
       className={cn(
         "group relative flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors duration-150",
-        "focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none",
+        "focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
         active
-          ? "bg-skope-gold/10 font-medium text-skope-gold"
+          ? "bg-skope-accent/10 font-medium text-skope-accent"
           : "text-sidebar-foreground hover:bg-surface-raised hover:text-foreground",
         collapsed && "justify-center px-0"
       )}
@@ -339,11 +369,11 @@ function NavLink({
       {/* Aktivmarke am linken Rand — ruhiger als eine vollflächige Färbung. */}
       {active && (
         <span
-          className="absolute inset-y-1.5 -left-3 w-0.5 rounded-r-full bg-skope-gold"
+          className="absolute inset-y-1.5 -left-3 w-0.5 rounded-r-full bg-skope-accent"
           aria-hidden
         />
       )}
-      <Icon className={cn("size-[1.05rem] shrink-0", active && "text-skope-gold")} />
+      <Icon className={cn("size-[1.05rem] shrink-0", active && "text-skope-accent")} />
       {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
       {!collapsed && badge !== undefined && badge > 0 && (
         <span
@@ -361,7 +391,7 @@ function NavLink({
         <span
           className={cn(
             "absolute top-1.5 right-2.5 size-1.5 rounded-full",
-            item.badge === "failedSyncs" ? "bg-state-error" : "bg-skope-gold"
+            item.badge === "failedSyncs" ? "bg-state-error" : "bg-skope-accent"
           )}
           aria-hidden
         />

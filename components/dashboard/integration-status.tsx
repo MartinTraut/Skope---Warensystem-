@@ -88,7 +88,7 @@ export function IntegrationStatus() {
         action={
           <Link
             href="/integrations"
-            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
           >
             Verwalten
             <ArrowUpRight className="size-3.5" />

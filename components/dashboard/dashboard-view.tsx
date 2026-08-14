@@ -112,9 +112,9 @@ export function DashboardView() {
           <Panel accent className="p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <p className="type-label">Umsatz diesen Monat</p>
-              <TrendingUp className="size-4 shrink-0 text-skope-gold" aria-hidden />
+              <TrendingUp className="size-4 shrink-0 text-skope-accent" aria-hidden />
             </div>
-            <p className="type-display mt-3 text-skope-gold">
+            <p className="type-display mt-3 text-skope-accent">
               {formatCentsCompact(metrics.revenueThisMonthCents)}
             </p>
             <p className="mt-1.5 text-xs text-muted-foreground">
@@ -180,7 +180,7 @@ export function DashboardView() {
                 value={metrics.soldThisMonth}
                 hint="alle Kanäle"
                 icon={<ShoppingBag className="size-4" />}
-                tone="text-skope-gold"
+                tone="text-skope-accent"
               />
             </div>
           </Panel>
@@ -213,7 +213,7 @@ export function DashboardView() {
             action={
               <Link
                 href="/scooters"
-                className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+                className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
               >
                 Alle {metrics.inStock}
                 <ArrowUpRight className="size-3.5" />

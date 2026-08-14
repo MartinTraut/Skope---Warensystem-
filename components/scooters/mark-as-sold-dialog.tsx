@@ -140,6 +140,21 @@ export function MarkAsSoldDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
+      /*
+        Gegen die Vorbelegung geprüft, nicht gegen leer: Preis, Datum und Ort
+        sind beim Öffnen bereits gefüllt und sind für sich noch keine Eingabe.
+        Ein Verkauf ist der teuerste Dialog im System — hier darf nichts
+        verlorengehen.
+      */
+      dirty={
+        price !== centsToInput(scooter.salePriceCents) ||
+        date !== new Date().toISOString().slice(0, 10) ||
+        note.trim() !== "" ||
+        channel !== "VOR_ORT" ||
+        source !== "UNBEKANNT" ||
+        region.trim() !== "" ||
+        place !== scooter.location
+      }
       title="Als verkauft markieren"
       description={`${scooter.scooterNumber} · ${modelLabel(scooter)}`}
       footer={
@@ -258,8 +273,8 @@ export function MarkAsSoldDialog({
           </p>
         </div>
 
-        <div className="flex gap-2.5 rounded-lg border border-skope-gold/25 bg-skope-gold/6 p-3.5">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-skope-gold" />
+        <div className="flex gap-2.5 rounded-lg border border-skope-accent/25 bg-skope-accent/6 p-3.5">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-skope-accent" />
           <p className="text-xs leading-relaxed text-foreground/85">
             Mit dem Erfassen wird der Scooter zentral auf <strong>VERKAUFT</strong>{" "}
             gesetzt, der Bestand auf 0 reduziert und alle aktiven Kanäle werden

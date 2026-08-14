@@ -35,7 +35,7 @@ export default function GlobalError({
               fontSize: "0.6875rem",
               letterSpacing: "0.16em",
               textTransform: "uppercase",
-              color: "#c8a45a",
+              color: "#8ee506",
             }}
           >
             SKOPE Cockpit
@@ -84,7 +84,7 @@ export default function GlobalError({
               padding: "0 1.25rem",
               borderRadius: "0.5rem",
               border: "none",
-              background: "#c8a45a",
+              background: "#8ee506",
               color: "#08090a",
               fontSize: "0.875rem",
               fontWeight: 500,

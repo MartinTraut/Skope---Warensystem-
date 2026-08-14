@@ -125,6 +125,8 @@ export function NewScooterDialog({
     <Modal
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(true) : close())}
+      // Bei der Neuanlage ist jedes ausgefüllte Feld eine ungespeicherte Eingabe.
+      dirty={JSON.stringify(form) !== JSON.stringify(EMPTY_FORM)}
       title="Scooter hinzufügen"
       description="Die Scooter-Nummer wird automatisch vergeben."
       size="lg"

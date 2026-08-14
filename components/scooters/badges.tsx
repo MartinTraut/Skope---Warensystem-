@@ -106,7 +106,7 @@ export function SyncBadge({
 
 const CHANNEL_DOT: Record<ListingStatus, string> = {
   VEROEFFENTLICHT: "bg-state-live border-state-live/40",
-  SYNC_AUSSTEHEND: "bg-skope-gold border-skope-gold/40 animate-pulse-soft",
+  SYNC_AUSSTEHEND: "bg-skope-accent border-skope-accent/40 animate-pulse-soft",
   FEHLER: "bg-state-error border-state-error/40",
   DEAKTIVIERT: "bg-muted-foreground/40 border-white/8",
   NICHT_VEROEFFENTLICHT: "bg-transparent border-white/12",
@@ -169,7 +169,7 @@ export function ScooterIdentity({
 }) {
   const content = (
     <>
-      <span className="block font-mono type-body-sm font-medium text-foreground group-hover:text-skope-gold">
+      <span className="block font-mono type-body-sm font-medium text-foreground group-hover:text-skope-accent">
         {scooter.scooterNumber}
       </span>
       <span className="mt-0.5 block truncate text-xs text-muted-foreground">
@@ -188,7 +188,7 @@ export function ScooterIdentity({
     <Link
       href={href}
       className={cn(
-        "group block min-w-0 rounded-md transition-colors focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none",
+        "group block min-w-0 rounded-md transition-colors focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
         className
       )}
     >

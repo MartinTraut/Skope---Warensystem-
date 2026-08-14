@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
 import { evaluateReadiness } from "@/lib/domain/status"
 import type { Scooter } from "@/lib/domain/types"
-import { cn } from "@/lib/utils"
 
 /**
  * Freigabecheck vor der Veröffentlichung.
@@ -22,6 +21,7 @@ export function ReadinessPanel({ scooter }: { scooter: Scooter }) {
   const [working, setWorking] = useState(false)
   const checks = evaluateReadiness(scooter)
   const open = checks.filter((check) => !check.ok)
+  const done = checks.filter((check) => check.ok)
   const ready = open.length === 0
 
   if (scooter.saleStatus === "VERKAUFT") return null
@@ -44,8 +44,9 @@ export function ReadinessPanel({ scooter }: { scooter: Scooter }) {
   }
 
   return (
-    <Panel accent={ready}>
+    <Panel accent={ready} tone={ready ? undefined : "warn"}>
       <PanelHeader
+        tone={ready ? undefined : "warn"}
         title="Freigabe"
         description={
           ready
@@ -60,46 +61,66 @@ export function ReadinessPanel({ scooter }: { scooter: Scooter }) {
           ) : null
         }
       />
-      <PanelBody className="p-3 sm:p-3">
-        <ul className="space-y-0.5">
-          {checks.map((check) => (
-            <li
-              key={check.label}
-              className="flex items-start gap-2.5 rounded-lg px-2.5 py-2"
-            >
-              <span
-                className={cn(
-                  "mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border",
-                  check.ok
-                    ? "border-state-ready/35 bg-state-ready/12 text-state-ready"
-                    : "border-state-warn/35 bg-state-warn/10 text-state-warn"
-                )}
-                aria-hidden
+      {/*
+        Offen und erledigt sind getrennt.
+
+        Vorher lief beides in einer Liste durch, in gleicher Größe und
+        gleichem Abstand — der eine offene Punkt stand irgendwo zwischen acht
+        Haken und war beim Überfliegen nicht zu finden. Jetzt steht oben, was
+        zu tun ist; das Erledigte trägt darunter nur noch als Beleg.
+      */}
+      <PanelBody className="space-y-4 p-3 sm:p-3.5">
+        {open.length > 0 && (
+          <ul className="space-y-2">
+            {open.map((check) => (
+              <li
+                key={check.label}
+                className="flex items-start gap-2.5 rounded-lg border border-state-warn/30 bg-state-warn/8 px-3 py-2.5"
               >
-                {check.ok ? (
-                  <Check className="size-3" strokeWidth={3} />
-                ) : (
-                  <CircleAlert className="size-3" />
-                )}
-              </span>
-              <div className="min-w-0">
-                <p
-                  className={cn(
-                    "type-body-sm",
-                    check.ok ? "text-foreground/70" : "font-medium text-foreground"
-                  )}
-                >
-                  {check.label}
-                </p>
-                {!check.ok && (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                <CircleAlert
+                  className="mt-0.5 size-4 shrink-0 text-state-warn"
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    {check.label}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-foreground/70">
                     {check.hint}
                   </p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {done.length > 0 && (
+          <div>
+            {open.length > 0 && (
+              <p className="type-label mb-2 px-1">
+                Erledigt · {done.length} von {checks.length}
+              </p>
+            )}
+            <ul className="space-y-0.5">
+              {done.map((check) => (
+                <li
+                  key={check.label}
+                  className="flex items-center gap-2.5 px-1 py-1"
+                >
+                  <span
+                    className="grid size-[18px] shrink-0 place-items-center rounded-full border border-state-ready/35 bg-state-ready/12 text-state-ready"
+                    aria-hidden
+                  >
+                    <Check className="size-3" strokeWidth={3} />
+                  </span>
+                  <span className="min-w-0 truncate type-body-sm text-foreground/65">
+                    {check.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </PanelBody>
     </Panel>
   )

@@ -1169,6 +1169,25 @@ class DemoSettingsRepository implements SettingsRepository {
       )
     }
 
+    /*
+      Die Version der Sicherung wird gelesen, nicht nur geschrieben.
+
+      Bisher stand `version` zwar in jeder Exportdatei, wurde beim Einspielen
+      aber nie angesehen: `replaceAll` schrieb den Inhalt direkt in den Store
+      und umging damit `migrate` vollständig. Eine Sicherung aus einer neueren
+      Fassung als der laufenden kann Felder mitbringen, die es hier noch nicht
+      gibt — die werden ohne Prüfung zu stillen Fehlern. Ältere Sicherungen
+      sind dagegen unkritisch: Die fehlenden Felder werden unten aufgefüllt.
+    */
+    const version = Number(snapshot.version ?? 0)
+    if (version > SNAPSHOT_VERSION) {
+      return actionFail<{ scooters: number; sales: number }>(
+        `Die Sicherung stammt aus einer neueren Fassung (Version ${version}, ` +
+          `diese Installation kennt Version ${SNAPSHOT_VERSION}).`,
+        true
+      )
+    }
+
     const sales = (snapshot.sales ?? []).map((sale) => ({
       ...sale,
       sheetsRowNumber: sale.sheetsRowNumber ?? null,

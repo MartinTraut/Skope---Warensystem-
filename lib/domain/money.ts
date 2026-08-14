@@ -32,6 +32,31 @@ export function formatCentsCompact(cents: number | null | undefined): string {
   return currencyCompactFormatter.format(Math.round(cents / 100))
 }
 
+/**
+ * Kurzform für Diagrammachsen: "4,5 T€", "1,2 Mio €".
+ *
+ * Eine Achse muss in eine schmale Spalte passen. `formatCentsCompact` liefert
+ * dort "12.400 €" — fünf bis sieben Zeichen zu viel, die entweder umbrechen
+ * oder die Zeichenfläche schmaler machen. Gerundet wird großzügig: Die Achse
+ * dient dem Größenvergleich, den genauen Betrag trägt die Beschriftung am
+ * Balken.
+ */
+export function formatCentsAxis(cents: number): string {
+  const euros = Math.round(cents / 100)
+  const abs = Math.abs(euros)
+
+  if (abs >= 1_000_000) {
+    return `${(euros / 1_000_000).toFixed(1).replace(".", ",")} Mio €`
+  }
+  if (abs >= 1_000) {
+    const thousands = euros / 1_000
+    const rounded =
+      abs >= 10_000 ? String(Math.round(thousands)) : thousands.toFixed(1)
+    return `${rounded.replace(".", ",")} T€`
+  }
+  return `${euros} €`
+}
+
 export function formatNumber(value: number): string {
   return numberFormatter.format(value)
 }

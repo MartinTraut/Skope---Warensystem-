@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { toast } from "sonner"
+import { useState } from "react"
 import { Sparkles, Wrench } from "lucide-react"
 
 import { WorkRow } from "./work-row"
@@ -15,6 +15,7 @@ import {
 import { MetricGridSkeleton, TableSkeleton } from "@/components/skope/skeletons"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import { runAction } from "@/lib/data/run-action"
 import { formatCents, formatCentsCompact } from "@/lib/domain/money"
 import { repairCostsCents } from "@/lib/domain/metrics"
 import { isInStock } from "@/lib/domain/status"
@@ -22,6 +23,13 @@ import { useHydrated, useScooters } from "@/hooks/use-cockpit"
 
 /** Arbeitsliste Aufbereitung: offene Reparaturen und ausstehende Reinigungen. */
 export function RefurbishmentView() {
+  /*
+    Welcher Scooter gerade gereinigt gemeldet wird.
+
+    Ohne diesen Zustand blieb der Knopf während des Schreibens bedienbar und
+    ließ sich mehrfach auslösen; gemeldet wurde der Erfolg ohnehin blind.
+  */
+  const [cleaningId, setCleaningId] = useState<string | null>(null)
   const hydrated = useHydrated()
   const scooters = useScooters().filter(isInStock)
 
@@ -137,14 +145,20 @@ export function RefurbishmentView() {
                     !scooter.cleaning.done && open.length === 0 ? (
                       <Button
                         className="h-10 px-3.5"
+                        disabled={cleaningId === scooter.id}
                         onClick={async () => {
-                          await repositories.scooters.setCleaning(scooter.id, true)
-                          toast.success(
-                            `${scooter.scooterNumber}: Reinigung erledigt`
+                          setCleaningId(scooter.id)
+                          await runAction(
+                            repositories.scooters.setCleaning(scooter.id, true),
+                            {
+                              success: `${scooter.scooterNumber}: Reinigung erledigt`,
+                              failure: "Reinigung nicht gespeichert",
+                            }
                           )
+                          setCleaningId(null)
                         }}
                       >
-                        Gereinigt
+                        {cleaningId === scooter.id ? "…" : "Gereinigt"}
                       </Button>
                     ) : null
                   }
@@ -167,7 +181,7 @@ export function RefurbishmentView() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <Link
                     href={`/scooters/${scooter.id}`}
-                    className="rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-gold"
+                    className="rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-accent"
                   >
                     {scooter.scooterNumber}
                   </Link>

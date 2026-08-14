@@ -54,7 +54,15 @@ export function ScooterTable({
 
   return (
     <>
-      <div className="hidden lg:block">
+      {/*
+        Waagerecht scrollbar.
+
+        Elf Spalten brauchen mehr Platz, als eine Karte auf einem 1512er
+        Bildschirm hergibt. Bisher schnitt die Karte den Rest einfach ab: Die
+        Spalte {"„"}Geändert{"“"} und der Öffnen-Pfeil waren nicht
+        nur unsichtbar, sondern gar nicht erreichbar.
+      */}
+      <div className="hidden overflow-x-auto lg:block">
         <DesktopTable scooters={scooters} variant={variant} />
       </div>
       <ul className="divide-y divide-skope-line lg:hidden">
@@ -84,15 +92,24 @@ function DesktopTable({
 
   return (
     <table className="w-full text-left text-sm">
-      <thead>
-        <tr className="border-b border-skope-line">
+      {/*
+        Der Kopf trägt den Markenton und hebt sich damit klar von den Zeilen
+        ab. Vorher war er grau auf grau — beim Scrollen durch eine lange Liste
+        verlor man, welche Spalte man gerade liest.
+      */}
+      <thead className="bg-skope-accent/[0.11]">
+        <tr className="border-b border-skope-accent/25">
           <Th className="pl-4 sm:pl-5">Scooter</Th>
           {full && <Th>Seriennummer</Th>}
           {full && <Th align="right">Einkauf</Th>}
-          <Th align="right">Verkauf</Th>
+          {/*
+            Zwei Spalten hießen „Verkauf": der Preis und der Status. Im Kopf
+            nebeneinander war nicht zu erkennen, welche welche ist.
+          */}
+          <Th align="right">Verkaufspreis</Th>
           {full && <Th align="right">Marge</Th>}
           <Th>Workflow</Th>
-          <Th>Verkauf</Th>
+          <Th>Verkaufsstatus</Th>
           <Th>Kanäle</Th>
           {full && <Th>Standort</Th>}
           <Th align="right" className="pr-4 sm:pr-5">
@@ -163,7 +180,7 @@ function DesktopTable({
                 <Link
                   href={`/scooters/${scooter.id}`}
                   aria-label={`${scooter.scooterNumber} öffnen`}
-                  className="grid size-8 place-items-center rounded-md text-muted-foreground/50 transition-colors group-hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+                  className="grid size-8 place-items-center rounded-md text-muted-foreground/50 transition-colors group-hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
                 >
                   <ChevronRight className="size-4" />
                 </Link>
@@ -189,7 +206,7 @@ function Th({
     <th
       scope="col"
       className={cn(
-        "px-3 py-2.5 text-[10px] font-medium tracking-[0.1em] text-muted-foreground/80 uppercase",
+        "px-3 py-3 text-[10px] font-semibold tracking-[0.1em] whitespace-nowrap text-skope-accent/85 uppercase",
         align === "right" && "text-right",
         className
       )}

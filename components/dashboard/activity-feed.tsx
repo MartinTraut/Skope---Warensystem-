@@ -30,7 +30,7 @@ export function ActivityFeed({ limit = 8 }: { limit?: number }) {
         action={
           <Link
             href="/activity"
-            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
           >
             Alle anzeigen
             <ArrowUpRight className="size-3.5" />
@@ -77,7 +77,7 @@ export function ActivityList({ events }: { events: AuditEvent[] }) {
               {event.scooterNumber && event.scooterId ? (
                 <Link
                   href={`/scooters/${event.scooterId}`}
-                  className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-gold focus-visible:ring-3 focus-visible:ring-skope-gold/25 focus-visible:outline-none"
+                  className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
                 >
                   {event.scooterNumber}
                 </Link>

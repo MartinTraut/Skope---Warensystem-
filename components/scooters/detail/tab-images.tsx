@@ -206,15 +206,15 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
               className={cn(
                 "mb-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition-colors duration-200",
                 dragOver
-                  ? "border-skope-gold/60 bg-skope-gold/8"
-                  : "border-skope-line-strong hover:border-skope-gold/35 hover:bg-surface-sunken",
-                "focus-visible:border-skope-gold/60 focus-visible:ring-3 focus-visible:ring-skope-gold/15 focus-visible:outline-none"
+                  ? "border-skope-accent/60 bg-skope-accent/8"
+                  : "border-skope-line-strong hover:border-skope-accent/35 hover:bg-surface-sunken",
+                "focus-visible:border-skope-accent/60 focus-visible:ring-3 focus-visible:ring-skope-accent/15 focus-visible:outline-none"
               )}
             >
               <ImagePlus
                 className={cn(
                   "size-6 transition-colors",
-                  dragOver ? "text-skope-gold" : "text-muted-foreground"
+                  dragOver ? "text-skope-accent" : "text-muted-foreground"
                 )}
               />
               <p className="mt-3 text-sm font-medium text-foreground">
@@ -240,7 +240,7 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
                   className={cn(
                     "group relative overflow-hidden rounded-xl border bg-black/30 transition-colors",
                     image.isPrimary
-                      ? "border-skope-gold/45"
+                      ? "border-skope-accent/45"
                       : "border-skope-line hover:border-skope-line-strong"
                   )}
                 >
@@ -253,7 +253,7 @@ export function TabImages({ scooter }: { scooter: Scooter }) {
                   </div>
 
                   {image.isPrimary && (
-                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-md border border-skope-gold/35 bg-[#0b0c0e]/90 px-1.5 py-0.5 text-[10px] font-medium text-skope-gold">
+                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-md border border-skope-accent/35 bg-[#0b0c0e]/90 px-1.5 py-0.5 text-[10px] font-medium text-skope-accent">
                       <Star className="size-2.5 fill-current" />
                       Titelbild
                     </span>

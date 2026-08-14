@@ -285,7 +285,7 @@ function PricingPanel({ scooter }: { scooter: Scooter }) {
         </div>
 
         {dirty && (
-          <p className="mt-4 rounded-lg border border-skope-gold/25 bg-skope-gold/6 px-3 py-2 text-xs text-foreground/85">
+          <p className="mt-4 rounded-lg border border-skope-accent/25 bg-skope-accent/6 px-3 py-2 text-xs text-foreground/85">
             Ungespeicherte Änderungen — auf {"\u201eSpeichern\u201c"} tippen,
             um sie zu übernehmen.
           </p>

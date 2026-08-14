@@ -26,7 +26,7 @@ const STAGE_TONE: Record<string, { text: string; bar: string }> = {
   AUFBEREITUNG: { text: "text-state-progress", bar: "bg-state-progress" },
   VERKAUFSBEREIT: { text: "text-state-ready", bar: "bg-state-ready" },
   INSERIERT: { text: "text-state-live", bar: "bg-state-live" },
-  VERKAUFT: { text: "text-skope-gold", bar: "bg-skope-gold" },
+  VERKAUFT: { text: "text-skope-accent", bar: "bg-skope-accent" },
 }
 
 const STAGE_LINKS: Record<string, string> = {

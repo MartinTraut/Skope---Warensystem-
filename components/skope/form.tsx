@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 const CONTROL_BASE =
   "w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm text-foreground " +
   "transition-colors duration-150 outline-none placeholder:text-muted-foreground/70 " +
-  "hover:border-[#353941] focus:border-skope-gold/60 focus:ring-3 focus:ring-skope-gold/15 " +
+  "hover:border-[#353941] focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 " +
   "disabled:cursor-not-allowed disabled:opacity-50"
 
 const CONTROL_HEIGHT = "h-11"
@@ -52,7 +52,7 @@ export function Field({
         className="mb-1.5 block type-body-sm font-medium text-foreground/90"
       >
         {label}
-        {required && <span className="ml-1 text-skope-gold">*</span>}
+        {required && <span className="ml-1 text-skope-accent">*</span>}
       </label>
       {children(id)}
       {error ? (
@@ -354,7 +354,7 @@ export function ToggleRow({
       className={cn(
         "flex w-full items-center justify-between gap-4 rounded-lg border border-skope-line bg-surface-sunken px-3.5 py-3 text-left transition-colors duration-150",
         "hover:border-skope-line-strong hover:bg-surface-raised",
-        "focus-visible:border-skope-gold/50 focus-visible:ring-3 focus-visible:ring-skope-gold/15 focus-visible:outline-none",
+        "focus-visible:border-skope-accent/50 focus-visible:ring-3 focus-visible:ring-skope-accent/15 focus-visible:outline-none",
         disabled && "cursor-not-allowed opacity-50",
         className
       )}
@@ -370,7 +370,7 @@ export function ToggleRow({
       <span
         className={cn(
           "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200",
-          checked ? "bg-skope-gold" : "bg-[#2a2d33]"
+          checked ? "bg-skope-accent" : "bg-[#2a2d33]"
         )}
         aria-hidden
       >

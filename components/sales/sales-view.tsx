@@ -201,7 +201,7 @@ function SalesTable({ sales }: { sales: Sale[] }) {
                 <td className="px-3 py-3">
                   <Link
                     href={`/scooters/${sale.scooterId}`}
-                    className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-gold"
+                    className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-accent"
                   >
                     {sale.scooterNumber}
                   </Link>

@@ -24,6 +24,7 @@ import { buttonVariants } from "@/components/ui/button"
 import type { StatusTone } from "@/lib/domain/status"
 import { DateTimeText } from "@/components/skope/client-time"
 import { repositories } from "@/lib/data/demo-repository"
+import { runAction } from "@/lib/data/run-action"
 import { useIntegrationState, useSales, useScooters } from "@/hooks/use-cockpit"
 
 /**
@@ -69,8 +70,8 @@ export function IntegrationsView() {
         description="Zustand der angebundenen Systeme. Im Prototyp laufen alle externen Aufrufe gegen Demo-Adapter."
       />
 
-      <div className="flex items-start gap-3 rounded-xl border border-skope-gold/25 bg-skope-gold/6 px-4 py-3.5">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-skope-gold" />
+      <div className="flex items-start gap-3 rounded-xl border border-skope-accent/25 bg-skope-accent/6 px-4 py-3.5">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-skope-accent" />
         <p className="text-sm leading-relaxed text-foreground/85">
           <span className="font-medium">Alle Integrationen laufen im Demo-Modus.</span>{" "}
           Es werden keine Daten an Shopify, Kleinanzeigen oder Google gesendet.
@@ -172,8 +173,20 @@ export function IntegrationsView() {
             label="Shopify-Fehler simulieren"
             description="Veröffentlichen, Aktualisieren und Deaktivieren schlagen fehl. Das Listing geht sichtbar auf FEHLER und lässt sich wiederholen."
             checked={integrations.simulateShopifyError}
-            onCheckedChange={(checked) => {
-              void repositories.settings.setIntegrationFlags({ simulateShopifyError: checked })
+            onCheckedChange={async (checked) => {
+              /*
+                Ausgerechnet die Karte, die von ehrlicher Fehlermeldung
+                handelt, verwarf ihr eigenes Ergebnis per `void` und meldete
+                blind Erfolg: Schlug das Schreiben fehl, sprang der Schalter
+                zurück, während der Toast das Gegenteil behauptete.
+              */
+              const result = await runAction(
+                repositories.settings.setIntegrationFlags({
+                  simulateShopifyError: checked,
+                }),
+                { failure: "Einstellung nicht geändert" }
+              )
+              if (result === null) return
               toast[checked ? "warning" : "success"](
                 checked
                   ? "Shopify-Fehlersimulation aktiv"
@@ -185,8 +198,14 @@ export function IntegrationsView() {
             label="Google-Sheets-Fehler simulieren"
             description="Verkaufszeilen werden nicht geschrieben. Der Verkauf bleibt trotzdem korrekt verbucht — nur das Reporting steht auf FEHLER."
             checked={integrations.simulateSheetsError}
-            onCheckedChange={(checked) => {
-              void repositories.settings.setIntegrationFlags({ simulateSheetsError: checked })
+            onCheckedChange={async (checked) => {
+              const result = await runAction(
+                repositories.settings.setIntegrationFlags({
+                  simulateSheetsError: checked,
+                }),
+                { failure: "Einstellung nicht geändert" }
+              )
+              if (result === null) return
               toast[checked ? "warning" : "success"](
                 checked
                   ? "Sheets-Fehlersimulation aktiv"
