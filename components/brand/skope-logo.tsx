@@ -55,7 +55,15 @@ export function SkopeLogo({
         src={src}
         alt="SKOPE"
         style={{ height }}
-        className={cn("w-auto object-contain object-left select-none", className)}
+        /*
+          `max-w-full` ist hier nicht kosmetisch: In der eingeklappten
+          Navigation ist das Signet breiter als die Spalte und lief sonst
+          über die Trennkante hinaus.
+        */
+        className={cn(
+          "w-auto max-w-full object-contain select-none",
+          className
+        )}
         draggable={false}
       />
     )
@@ -95,12 +103,12 @@ function LogoPlaceholder({
       title="Platzhalter — Logodatei unter /public/brand/ ablegen"
     >
       <div
-        className="grid shrink-0 place-items-center rounded-md border border-dashed border-skope-gold/45 bg-skope-gold/8"
+        className="grid shrink-0 place-items-center rounded-md border border-dashed border-skope-accent/45 bg-skope-accent/8"
         style={{ height, width: height }}
         aria-hidden
       >
         <span
-          className="font-medium text-skope-gold"
+          className="font-medium text-skope-accent"
           style={{ fontSize: height * 0.46, letterSpacing: "-0.02em" }}
         >
           S
