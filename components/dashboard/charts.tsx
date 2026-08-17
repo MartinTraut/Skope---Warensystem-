@@ -548,12 +548,21 @@ export function RevenueChart() {
                           className="absolute inset-0 bg-gradient-to-b from-state-cost/70 to-state-cost/45"
                           aria-hidden
                         />
+                        {/*
+                          Die Marge trägt hier dieselbe Farbe wie überall
+                          sonst. Vorher war dieser Streifen im Markengrün:
+                          Beim Umschalten von „Gestapelt" auf „Balken"
+                          wechselte dieselbe Größe die Farbe von Grün auf
+                          Cyan — die Säule als Ganzes ist der Umsatz, der
+                          Streifen darin ist die Marge, und beides muss
+                          auseinanderzuhalten sein.
+                        */}
                         <div
                           className={cn(
                             "absolute inset-x-0 top-0 bg-gradient-to-b transition-[height] duration-300 ease-out",
                             month.isCurrent
-                              ? "from-skope-accent to-skope-accent-dim"
-                              : "from-skope-accent/85 to-skope-accent-dim/75 group-hover:from-skope-accent group-hover:to-skope-accent-dim"
+                              ? "from-state-live to-state-live/70"
+                              : "from-state-live/85 to-state-live/60 group-hover:from-state-live group-hover:to-state-live/70"
                           )}
                           style={{ height: `${marginShare}%` }}
                         >
@@ -644,7 +653,7 @@ export function RevenueChart() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {shape === "gestapelt" ? (
               <>
-                <LegendDot className="bg-skope-accent" label="Marge" />
+                <LegendDot className={MEASURE_META.marge.dot} label="Marge" />
                 <LegendDot className="bg-state-cost" label="Ausgaben" />
               </>
             ) : (
@@ -1107,14 +1116,28 @@ function LineChart({
 /* Herkunft der Kunden                                                 */
 /* ------------------------------------------------------------------ */
 
-/** Feste Farbe je Herkunft — dieselbe überall, damit sie wiedererkennbar ist. */
+/*
+  Farben der Aufteilungen — bewusst getrennt von den Kennzahlfarben.
+
+  Vorher griffen diese beiden Listen genau in die Palette der Kennzahlen:
+  Grün stand für Umsatz *und* Empfehlung *und* Vor Ort, Cyan für Marge *und*
+  Kleinanzeigen, Violett für Stück *und* Social Media *und* Telefon. Da beide
+  Panels nebeneinander auf demselben Bildschirm stehen, las man aus gleichen
+  Farben einen Zusammenhang heraus, den es nicht gibt.
+
+  Reserviert und hier deshalb nicht verwendet:
+  `skope-accent` (Umsatz), `state-live` (Marge), `state-done` (Stück).
+
+  Kleinanzeigen trägt in beiden Listen dieselbe Farbe — es ist dieselbe Sache,
+  einmal als Herkunft des Kunden und einmal als Verkaufskanal.
+*/
 const SOURCE_COLOR: Record<CustomerSource, string> = {
   WEBSITE: "bg-state-ready",
   GOOGLE: "bg-state-info",
-  KLEINANZEIGEN: "bg-state-live",
-  SOCIAL_MEDIA: "bg-state-done",
-  EMPFEHLUNG: "bg-skope-accent",
-  STAMMKUNDE: "bg-state-warn",
+  KLEINANZEIGEN: "bg-state-warn",
+  SOCIAL_MEDIA: "bg-chart-4",
+  EMPFEHLUNG: "bg-chart-3",
+  STAMMKUNDE: "bg-state-progress",
   LAUFKUNDSCHAFT: "bg-state-error",
   SONSTIGE: "bg-state-neutral",
   UNBEKANNT: "bg-skope-line-strong"
@@ -1122,9 +1145,9 @@ const SOURCE_COLOR: Record<CustomerSource, string> = {
 
 const CHANNEL_COLOR: Record<SaleChannel, string> = {
   SHOPIFY: "bg-state-ready",
-  KLEINANZEIGEN: "bg-state-live",
-  VOR_ORT: "bg-skope-accent",
-  TELEFON: "bg-state-done",
+  KLEINANZEIGEN: "bg-state-warn",
+  VOR_ORT: "bg-chart-3",
+  TELEFON: "bg-chart-4",
   SONSTIGE: "bg-state-neutral"
 }
 
