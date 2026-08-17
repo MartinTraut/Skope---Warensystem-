@@ -534,10 +534,17 @@ export function RevenueChart() {
                         <div
                           className={cn(
                             "animate-bar-rise relative w-full overflow-hidden rounded-t-md rounded-b-sm bg-card",
-                            "ring-1 ring-white/[0.05] ring-inset transition-shadow duration-200",
+                            "ring-inset transition-shadow duration-200",
+                            /*
+                              Die Umrandung trägt die Umsatzfarbe: Die Säule
+                              als Ganzes *ist* der Umsatz. Vorher war der Rand
+                              ein farbloses Weiß-Fünfprozent, und nachdem die
+                              Margenfläche ihre eigene Farbe bekam, gab es im
+                              Balken kein Umsatzmerkmal mehr.
+                            */
                             month.isCurrent
-                              ? "shadow-[0_0_24px_-6px_var(--skope-accent)]"
-                              : "group-hover:shadow-[0_0_22px_-8px_var(--skope-accent)]"
+                              ? "ring-2 ring-skope-accent/70 shadow-[0_0_24px_-6px_var(--skope-accent)]"
+                              : "ring-1 ring-skope-accent/45 group-hover:ring-skope-accent/70 group-hover:shadow-[0_0_22px_-8px_var(--skope-accent)]"
                           )}
                           style={{
                             height: `${Math.max((month.revenueCents / moneyScale.max || 0) * 100, month.revenueCents === 0 ? 0 : 2)}%`
@@ -653,16 +660,43 @@ export function RevenueChart() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {shape === "gestapelt" ? (
               <>
+                {/*
+                  Der Umsatz gehört in die Legende, obwohl er keine eigene
+                  Fläche hat: Er ist die Gesamthöhe der Säule. Ohne ihn stand
+                  in der Legende nur, was *in* der Säule steckt — und die
+                  Größe, um die es in der Auswertung geht, war die einzige
+                  ohne Eintrag.
+                */}
+                <LegendDot
+                  className={MEASURE_META.umsatz.dot}
+                  label="Umsatz — Gesamthöhe"
+                />
                 <LegendDot className={MEASURE_META.marge.dot} label="Marge" />
                 <LegendDot className="bg-state-cost" label="Ausgaben" />
               </>
             ) : (
               <>
-                {measures.map((measure) => (
+                {measures.map((measure, order) => (
                   <LegendDot
                     key={measure}
                     className={MEASURE_META[measure].dot}
                     label={MEASURE_META[measure].label}
+                    color={MEASURE_META[measure].color}
+                    /*
+                      Die Strichart steht nur dabei, wenn es überhaupt Striche
+                      gibt und mehr als einer — bei einer einzigen Kurve ist
+                      die Farbe eindeutig, und ein Liniensymbol neben einem
+                      Balkendiagramm wäre schlicht falsch.
+                    */
+                    stroke={
+                      shape === "linie" && measures.length > 1
+                        ? order === 0
+                          ? "solid"
+                          : order === 1
+                            ? "dashed"
+                            : "dotted"
+                        : undefined
+                    }
                   />
                 ))}
                 {/*
@@ -903,12 +937,30 @@ function LineChart({
     padBottom -
     ((raw - scale.min) / scale.span) * (height - padTop - padBottom)
 
-  const paths = series.map((line) => {
+  /*
+    Strichart je Reihe, damit sich deckungsgleiche Kurven trennen lassen.
+
+    Farbe allein genügt nicht: Wo zwei Kurven denselben Verlauf nehmen, deckt
+    die später gezeichnete die frühere vollständig ab — die Leitgröße lag als
+    erste unten und war dann gar nicht mehr zu sehen. Die Leitgröße bleibt
+    durchgezogen und etwas kräftiger; die weiteren Reihen sind gestrichelt
+    beziehungsweise gepunktet und lassen den Strich darunter durch ihre Lücken
+    sichtbar.
+  */
+  const DASH = [undefined, "7 4", "2 3.5"] as const
+
+  const paths = series.map((line, order) => {
     const coords = line.values.map((raw, index) => ({
       x: xOf(index),
       y: yOf(raw, line.scale)
     }))
-    return { ...line, coords, d: toSmoothPath(coords) }
+    return {
+      ...line,
+      coords,
+      d: toSmoothPath(coords),
+      primary: order === 0,
+      dash: series.length > 1 ? DASH[order % DASH.length] : undefined
+    }
   })
 
   const primary = paths[0]
@@ -988,24 +1040,32 @@ function LineChart({
               und kann deshalb nicht danebenliegen.
             */
             <g key={line.key} className="animate-line-reveal">
-              {/* Weicher Schein, damit der Strich auf dunklem Grund trägt. */}
+              {/*
+                Der Schein trägt den Strich auf dunklem Grund — aber nur bei
+                einer einzigen Reihe. Bei mehreren legen sich drei
+                sieben Pixel breite Höfe übereinander und verwaschen genau die
+                Stelle, an der man zwei Kurven auseinanderhalten muss.
+              */}
+              {series.length === 1 && (
+                <path
+                  d={line.d}
+                  fill="none"
+                  stroke={line.color}
+                  strokeWidth="7"
+                  strokeOpacity="0.16"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
               <path
                 d={line.d}
                 fill="none"
                 stroke={line.color}
-                strokeWidth="7"
-                strokeOpacity="0.16"
+                strokeWidth={line.primary ? 3 : 2.25}
+                strokeDasharray={line.dash}
                 strokeLinejoin="round"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-              <path
-                d={line.d}
-                fill="none"
-                stroke={line.color}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
+                strokeLinecap={line.dash ? "butt" : "round"}
                 vectorEffect="non-scaling-stroke"
               />
             </g>
@@ -1649,10 +1709,51 @@ function MultiSegmented<T extends string>({
   )
 }
 
-function LegendDot({ className, label }: { className: string; label: string }) {
+/**
+ * Legendenmarke.
+ *
+ * Zeigt normalerweise einen Punkt. Im Verlauf mit mehreren Kurven zeigt sie
+ * stattdessen ein Stück des echten Strichs samt Strichart — sonst steht in der
+ * Legende ein Punkt, während im Diagramm eine gestrichelte Linie liegt, und
+ * die Zuordnung muss geraten werden.
+ */
+function LegendDot({
+  className,
+  label,
+  stroke,
+  color
+}: {
+  className: string
+  label: string
+  /** Strichart der zugehörigen Kurve, falls es eine gibt. */
+  stroke?: "solid" | "dashed" | "dotted"
+  /**
+   * Farbe des Strichs als CSS-Wert.
+   *
+   * Bewusst nicht aus `className` abgeleitet: Tailwind liest die Klassen aus
+   * dem Quelltext und erzeugt nichts, was erst zur Laufzeit entsteht — ein
+   * aus `bg-…` zusammengebautes `border-…` gäbe es im Stylesheet nie.
+   */
+  color?: string
+}) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className={cn("size-2 rounded-full", className)} aria-hidden />
+      {stroke ? (
+        <span
+          className={cn(
+            "h-0 w-4 shrink-0 border-t-2",
+            stroke === "dashed"
+              ? "border-dashed"
+              : stroke === "dotted"
+                ? "border-dotted"
+                : "border-solid"
+          )}
+          style={{ borderTopColor: color }}
+          aria-hidden
+        />
+      ) : (
+        <span className={cn("size-2 rounded-full", className)} aria-hidden />
+      )}
       {label}
     </span>
   )
