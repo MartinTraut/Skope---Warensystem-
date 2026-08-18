@@ -865,7 +865,25 @@ class DemoUnitRepository implements UnitRepository {
   }
 
   async updateSaleStatus(id: string, status: "VERFUEGBAR" | "RESERVIERT") {
-    const result = mutateUnit(id, (unit) => ({ ...unit, saleStatus: status }))
+    const unit = findUnit(id)
+    if (!unit) return actionFail<ArticleUnit>("Einzelstück nicht gefunden.")
+    /*
+      VERKAUFT ist ein Endzustand.
+
+      Ohne diese Sperre holt „Reservierung aufheben" ein bereits verkauftes
+      Gerät zurück in den Bestand, während der Verkauf bestehen bleibt —
+      dasselbe Gerät steckt dann gleichzeitig im Lagerwert und im Umsatz. Der
+      Weg zurück führt über die Stornierung des Verkaufs, nicht über den
+      Verkaufsstatus.
+    */
+    if (unit.saleStatus === "VERKAUFT") {
+      return actionFail<ArticleUnit>(
+        "Das Gerät ist verkauft. Dafür muss zuerst der Verkauf storniert werden.",
+        true
+      )
+    }
+
+    const result = mutateUnit(id, (current) => ({ ...current, saleStatus: status }))
     if (result.ok) {
       log({
         category: "VERKAUF",
@@ -882,6 +900,20 @@ class DemoUnitRepository implements UnitRepository {
     if (!unit) return actionFail<Sale>("Einzelstück nicht gefunden.")
     if (unit.saleStatus === "VERKAUFT") {
       return actionFail<Sale>("Das Gerät ist bereits als verkauft erfasst.", true)
+    }
+    /*
+      Ausgeschlachtete und archivierte Geräte sind nicht mehr im Bestand.
+
+      Ein zerlegtes Gerät ließ sich bisher normal verkaufen: Sein Einkaufswert
+      steckte dann gleichzeitig in den Einstandswerten der entnommenen Teile
+      und im Einstand dieses Verkaufs — die Marge wäre an zwei Stellen aus
+      derselben Zahl gerechnet.
+    */
+    if (!isUnitInStock(unit)) {
+      return actionFail<Sale>(
+        `${unit.unitNumber} ist nicht mehr im Bestand (${unit.workflowStatus.toLowerCase()}) und kann nicht verkauft werden.`,
+        true
+      )
     }
     if (!Number.isFinite(input.salePriceCents) || input.salePriceCents <= 0) {
       return actionFail<Sale>("Ein Verkauf ohne Preis wird nicht gebucht.", true)
@@ -909,6 +941,9 @@ class DemoUnitRepository implements UnitRepository {
       additionalCostsCents: unit.additionalCostsCents,
       soldAt: input.soldAt,
       note: input.note,
+      cancelledAt: null,
+      cancelReason: "",
+      cancelRestocked: false,
       sheetsSyncStatus: "WARTET",
       sheetsSyncedAt: null,
       sheetsError: null,
@@ -1423,6 +1458,9 @@ class DemoStockRepository implements StockRepository {
       additionalCostsCents: 0,
       soldAt: input.soldAt,
       note: input.note,
+      cancelledAt: null,
+      cancelReason: "",
+      cancelRestocked: false,
       sheetsSyncStatus: "WARTET",
       sheetsSyncedAt: null,
       sheetsError: null,
@@ -2069,6 +2107,90 @@ class DemoSalesRepository implements SalesRepository {
   async retrySheetsSync(saleId: string) {
     return syncSaleToSheets(saleId)
   }
+
+  async cancel(saleId: string, input: { reason: string; restock: boolean }) {
+    const sale = store().sales.find((entry) => entry.id === saleId)
+    if (!sale) return actionFail<Sale>("Verkauf nicht gefunden.")
+    if (sale.cancelledAt) {
+      return actionFail<Sale>("Dieser Verkauf ist bereits storniert.", true)
+    }
+    if (!input.reason.trim()) {
+      return actionFail<Sale>(
+        "Eine Stornierung ohne Grund ist nicht nachvollziehbar.",
+        true
+      )
+    }
+
+    const article = findArticle(sale.articleId)
+    const now = new Date().toISOString()
+
+    store().patchSale(saleId, {
+      cancelledAt: now,
+      cancelReason: input.reason.trim(),
+      cancelRestocked: input.restock,
+    })
+
+    /*
+      Gegenbuchung statt Löschen der ursprünglichen Bewegung.
+
+      Der Bestand ist die Summe aller Buchungen; wer die Abbuchung entfernt,
+      lässt den Verkauf aus dem Journal verschwinden und niemand kann später
+      erklären, warum die Zahlen einmal anders aussahen.
+    */
+    if (input.restock) {
+      store().addMovements([
+        {
+          id: createId("mov"),
+          at: now,
+          actor: store().user.name,
+          articleId: sale.articleId,
+          unitId: sale.unitId,
+          quantity: sale.quantity,
+          type: "KORREKTUR",
+          // Rückläufer werden mit ihrem eigenen Einstand bewertet, nicht mit
+          // dem inzwischen gelaufenen Durchschnitt — sonst verschiebt eine
+          // Retoure den Lagerwert aller übrigen Stücke.
+          unitCostCents:
+            sale.quantity > 0
+              ? Math.round(sale.purchasePriceCents / sale.quantity)
+              : null,
+          locationId: null,
+          toLocationId: null,
+          referenceId: sale.id,
+          note: `Storno Verkauf ${sale.itemNumber}: ${input.reason.trim()}`,
+        },
+      ])
+    }
+
+    // Einzelstücke kommen als Gerät zurück, nicht als Menge: Der Bestand
+    // serialisierter Artikel zählt die Geräte, nicht die Buchungen.
+    if (sale.unitId) {
+      const unit = findUnit(sale.unitId)
+      if (unit) {
+        store().updateUnit(sale.unitId, (current) => ({
+          ...current,
+          saleStatus: "VERFUEGBAR",
+          workflowStatus: input.restock ? "VERKAUFSBEREIT" : "ARCHIVIERT",
+        }))
+      }
+    }
+
+    log({
+      category: "VERKAUF",
+      action: input.restock ? "Verkauf storniert (Retoure)" : "Verkauf storniert",
+      detail:
+        `${sale.itemNumber} über ${formatEuro(sale.salePriceCents)} zurückgenommen. ` +
+        `Grund: ${input.reason.trim()}` +
+        (input.restock ? "" : " Die Ware geht nicht zurück in den Bestand."),
+      article: article ?? undefined,
+      level: "warning",
+    })
+
+    // Das Gerät war beim Verkauf von allen Kanälen genommen worden. Ob es
+    // wieder online geht, entscheidet die Freigabeliste — nicht der Storno.
+    const stored = store().sales.find((entry) => entry.id === saleId)
+    return actionOk(stored ?? sale)
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -2497,7 +2619,8 @@ class DemoSettingsRepository implements SettingsRepository {
     })
     if (broken.length > 0) {
       return actionFail<SnapshotSummary>(
-        `Die Sicherungsdatei ist beschädigt: ${broken.join(", ")} ist keine Liste. ` +
+        `Die Sicherungsdatei ist beschädigt: ${broken.join(", ")} ` +
+          `${broken.length === 1 ? "ist keine Liste" : "sind keine Listen"}. ` +
           "Es wurde nichts überschrieben.",
         true
       )
@@ -2509,6 +2632,9 @@ class DemoSettingsRepository implements SettingsRepository {
     const sales = list<Sale>(snapshot.sales).map((sale) => ({
       ...sale,
       sheetsRowNumber: sale.sheetsRowNumber ?? null,
+      cancelledAt: sale.cancelledAt ?? null,
+      cancelReason: sale.cancelReason ?? "",
+      cancelRestocked: sale.cancelRestocked ?? false,
     }))
 
     store().replaceAll({

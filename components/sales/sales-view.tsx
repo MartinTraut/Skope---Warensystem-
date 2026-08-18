@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Coins, Receipt, TrendingUp } from "lucide-react"
 
 import { SyncBadge } from "@/components/shared/badges"
+import { CancelSaleButton } from "./cancel-sale"
 import { InlineSelect, SearchInput } from "@/components/skope/form"
 import {
   EmptyState,
@@ -26,7 +27,7 @@ import {
 } from "@/lib/domain/metrics"
 import { SALE_CHANNEL_META } from "@/lib/domain/status"
 import { SALE_CHANNELS, type Sale } from "@/lib/domain/types"
-import { useHydrated, useSales } from "@/hooks/use-cockpit"
+import { useAllSales, useHydrated, useSales } from "@/hooks/use-cockpit"
 import { cn } from "@/lib/utils"
 
 /**
@@ -43,7 +44,10 @@ function saleHref(sale: Sale): string {
 /** Verkaufsübersicht mit Umsatz, Marge und Reporting-Zustand. */
 export function SalesView() {
   const hydrated = useHydrated()
+  // Kennzahlen nur aus gültigen Verkäufen, die Liste zeigt auch stornierte:
+  // Ein Storno verschwindet nicht, er wird als solcher sichtbar.
   const sales = useSales()
+  const allSales = useAllSales()
 
   const [scope, setScope] = useState("monat")
   const [channel, setChannel] = useState("alle")
@@ -52,9 +56,14 @@ export function SalesView() {
   const scoped = scope === "monat" ? filterSalesThisMonth(sales) : sales
   const metrics = computeSalesMetrics(scoped)
 
+  const listed = useMemo(
+    () => (scope === "monat" ? filterSalesThisMonth(allSales) : allSales),
+    [allSales, scope]
+  )
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    return scoped
+    return listed
       .filter((sale) => channel === "alle" || sale.channel === channel)
       .filter((sale) => {
         if (!needle) return true
@@ -69,7 +78,7 @@ export function SalesView() {
           .includes(needle)
       })
       .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime())
-  }, [scoped, channel, query])
+  }, [listed, channel, query])
 
   const failedSyncs = sales.filter(
     (sale) => sale.sheetsSyncStatus === "FEHLER"
@@ -201,7 +210,10 @@ function SalesTable({ sales }: { sales: Sale[] }) {
               <Th align="right">Kosten</Th>
               <Th align="right">VK</Th>
               <Th align="right">Marge</Th>
-              <Th className="pr-5">Sheets</Th>
+              <Th>Sheets</Th>
+              <Th className="pr-5">
+                <span className="sr-only">Aktion</span>
+              </Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-skope-line">
@@ -209,7 +221,10 @@ function SalesTable({ sales }: { sales: Sale[] }) {
               <tr
                 key={sale.id}
                 onClick={(event) => openRow(saleHref(sale), event)}
-                className="cursor-pointer transition-colors hover:bg-surface-sunken"
+                className={cn(
+                  "cursor-pointer transition-colors hover:bg-surface-sunken",
+                  sale.cancelledAt && "text-muted-foreground/70"
+                )}
               >
                 <td className="py-3 pr-3 pl-5 whitespace-nowrap text-muted-foreground">
                   {formatDate(sale.soldAt)}
@@ -224,6 +239,14 @@ function SalesTable({ sales }: { sales: Sale[] }) {
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {sale.itemLabel}
                   </span>
+                  {sale.cancelledAt && (
+                    <span
+                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-state-error"
+                      title={sale.cancelReason}
+                    >
+                      Storniert · {sale.cancelReason}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-3 text-muted-foreground">
                   {SALE_CHANNEL_META[sale.channel].label}
@@ -236,21 +259,31 @@ function SalesTable({ sales }: { sales: Sale[] }) {
                     sale.repairCostsCents + sale.additionalCostsCents
                   )}
                 </td>
-                <td className="px-3 py-3 text-right font-medium tabular-nums text-foreground">
+                <td
+                  className={cn(
+                    "px-3 py-3 text-right font-medium tabular-nums text-foreground",
+                    sale.cancelledAt && "text-muted-foreground line-through"
+                  )}
+                >
                   {formatCents(sale.salePriceCents)}
                 </td>
                 <td
                   className={cn(
                     "px-3 py-3 text-right font-medium tabular-nums",
-                    saleMarginCents(sale) < 0
-                      ? "text-state-error"
-                      : "text-state-ready"
+                    sale.cancelledAt
+                      ? "text-muted-foreground line-through"
+                      : saleMarginCents(sale) < 0
+                        ? "text-state-error"
+                        : "text-state-ready"
                   )}
                 >
                   {formatCents(saleMarginCents(sale))}
                 </td>
-                <td className="py-3 pr-5 pl-3">
+                <td className="px-3 py-3">
                   <SyncCell sale={sale} />
+                </td>
+                <td className="py-3 pr-5 pl-3 text-right">
+                  <CancelSaleButton sale={sale} />
                 </td>
               </tr>
             ))}
@@ -277,7 +310,12 @@ function SalesTable({ sales }: { sales: Sale[] }) {
                   {sale.itemLabel}
                 </p>
               </div>
-              <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">
+              <p
+                className={cn(
+                  "shrink-0 text-sm font-medium tabular-nums text-foreground",
+                  sale.cancelledAt && "text-muted-foreground line-through"
+                )}
+              >
                 {formatCents(sale.salePriceCents)}
               </p>
             </div>
@@ -297,8 +335,14 @@ function SalesTable({ sales }: { sales: Sale[] }) {
                 Marge {formatCents(saleMarginCents(sale))}
               </span>
             </div>
-            <div className="mt-2.5">
+            {sale.cancelledAt && (
+              <p className="mt-2 text-xs font-medium text-state-error">
+                Storniert · {sale.cancelReason}
+              </p>
+            )}
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <SyncCell sale={sale} />
+              <CancelSaleButton sale={sale} />
             </div>
             <p className="mt-2 type-caption text-muted-foreground">
               Kosten gesamt {formatCents(saleCostCents(sale))}

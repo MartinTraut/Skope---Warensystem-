@@ -103,7 +103,22 @@ export function useProposals() {
   return useCockpitStore((state) => state.proposals)
 }
 
+/**
+ * Nur gültige Verkäufe.
+ *
+ * Stornierte Verkäufe bleiben als Datensatz erhalten, dürfen aber in keine
+ * Kennzahl mehr einfließen — sonst zählt ein zurückgenommener Verkauf
+ * weiterhin in Umsatz, Marge und Kanalanteilen mit. Gefiltert wird an dieser
+ * einen Stelle, damit keine Auswertung es vergessen kann; die Verkaufsliste
+ * nutzt `useAllSales`.
+ */
 export function useSales() {
+  const sales = useCockpitStore((state) => state.sales)
+  return useMemo(() => sales.filter((sale) => !sale.cancelledAt), [sales])
+}
+
+/** Alle Verkäufe inklusive stornierter — für die Verkaufsliste. */
+export function useAllSales() {
   return useCockpitStore((state) => state.sales)
 }
 

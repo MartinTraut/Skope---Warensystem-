@@ -668,6 +668,17 @@ export interface Sale {
   soldAt: string
   note: string
 
+  /**
+   * Gesetzt, sobald der Verkauf storniert oder als Retoure zurückgenommen
+   * wurde. Der Datensatz bleibt erhalten — ein gelöschter Verkauf wäre ein
+   * Loch in der Umsatzreihe, das sich später niemand mehr erklären kann.
+   */
+  cancelledAt: string | null
+  /** Warum storniert wurde. Pflichtangabe beim Stornieren. */
+  cancelReason: string
+  /** Kam die Ware zurück ins Lager? */
+  cancelRestocked: boolean
+
   /** Reporting-Sync Richtung Google Sheets. */
   sheetsSyncStatus: SyncStatus
   sheetsSyncedAt: string | null

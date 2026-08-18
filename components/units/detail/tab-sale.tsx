@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { BookmarkCheck, BookmarkX } from "lucide-react"
 
 import { SaleBadge, SyncBadge } from "@/components/shared/badges"
+import { CancelSaleButton } from "@/components/sales/cancel-sale"
 import { MarkAsSoldDialog } from "../mark-as-sold-dialog"
 import {
   DataField,
@@ -92,6 +93,15 @@ export function TabSale({ unit }: { unit: ArticleUnit }) {
                 <p className="mt-1.5 text-sm text-foreground/85">{sale.note}</p>
               </div>
             )}
+
+            {/* Der Weg zurück: Widerruf, Retoure oder schlicht falsch erfasst. */}
+            <div className="mt-6 flex items-center justify-between gap-3 border-t border-skope-line pt-4">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Storniert den Verkauf mit Gegenbuchung. Das Gerät geht dabei
+                wahlweise zurück in den Bestand.
+              </p>
+              <CancelSaleButton sale={sale} />
+            </div>
           </PanelBody>
         </Panel>
 

@@ -353,6 +353,23 @@ export interface SalesRepository {
   getAll(): Promise<Sale[]>
   /** Reporting-Sync erneut anstoßen. */
   retrySheetsSync(saleId: string): Promise<ActionResult<Sale>>
+
+  /**
+   * Verkauf zurücknehmen — Fehlbuchung oder Retoure.
+   *
+   * Ein Verkauf war bisher endgültig: Ein Tippfehler im Preis oder ein
+   * Widerruf verfälschte Umsatz, Marge und Bestand dauerhaft. Storniert wird
+   * deshalb mit Gegenbuchung statt durch Löschen — der Verkauf bleibt in der
+   * Liste sichtbar und trägt seinen Grund.
+   *
+   * `restock` entscheidet, ob die Ware wieder in den Bestand geht: Bei einer
+   * Fehlbuchung hat sie das Lager nie verlassen, bei einer Retoure kommt sie
+   * zurück, bei einer beschädigten Rücksendung eben nicht.
+   */
+  cancel(
+    saleId: string,
+    input: { reason: string; restock: boolean }
+  ): Promise<ActionResult<Sale>>
 }
 
 /** Eine importierte Zeile, bereits auf Zielfelder abgebildet. */

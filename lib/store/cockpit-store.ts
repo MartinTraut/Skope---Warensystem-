@@ -40,6 +40,9 @@ import type {
 
 const STORAGE_KEY = "skope-cockpit-demo"
 /*
+  Version 6: Verkäufe können storniert werden und tragen dafür drei
+  zusätzliche Felder.
+
   Version 5: Umbau vom reinen Scooter-Bestand auf das Artikel-Modell.
   Aus `scooters` werden `articles` + `units`, dazu kommen Kategorien,
   Lagerplätze, Bewegungen, Ausschlachtungen und die Freigabeliste.
@@ -48,7 +51,7 @@ const STORAGE_KEY = "skope-cockpit-demo"
   sonst läuft `migrate` nicht, der alte Stand wird unverändert geladen und
   die Oberfläche greift auf ein Feld zu, das es dort nie gab.
 */
-const STORAGE_VERSION = 5
+const STORAGE_VERSION = 6
 
 /** Version der Sicherungsdatei. Wandert mit dem Datenmodell mit. */
 export const SNAPSHOT_VERSION = STORAGE_VERSION
@@ -420,7 +423,10 @@ export const useCockpitStore = create<CockpitState>()(
             sheetsRowNumber: sale.sheetsRowNumber ?? null,
             customerSource: sale.customerSource ?? "UNBEKANNT",
             customerRegion: sale.customerRegion ?? "",
-            saleLocation: sale.saleLocation ?? ""
+            saleLocation: sale.saleLocation ?? "",
+            cancelledAt: sale.cancelledAt ?? null,
+            cancelReason: sale.cancelReason ?? "",
+            cancelRestocked: sale.cancelRestocked ?? false
           })),
           categories: state.categories ?? base.categories,
           locations: state.locations ?? base.locations,

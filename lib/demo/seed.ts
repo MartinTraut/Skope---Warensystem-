@@ -1043,6 +1043,9 @@ function createSales(): { sales: Sale[]; movements: StockMovement[] } {
       additionalCostsCents: spec.extraCents ?? 0,
       soldAt: spec.soldAt,
       note: spec.note ?? "",
+      cancelledAt: null,
+      cancelReason: "",
+      cancelRestocked: false,
       sheetsSyncStatus: spec.sync ?? "SYNCHRONISIERT",
       sheetsSyncedAt: spec.sync === "SYNCHRONISIERT" ? spec.soldAt : null,
       sheetsError:
