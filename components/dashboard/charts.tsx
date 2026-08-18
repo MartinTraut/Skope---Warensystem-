@@ -520,7 +520,7 @@ export function RevenueChart() {
                         <p className="flex justify-center">
                           <span
                             className={cn(
-                              "rounded-md px-0.5 py-0.5 text-center text-[10px] font-medium tabular-nums transition-colors sm:px-1.5 sm:text-xs",
+                              "rounded-md px-0.5 py-0.5 text-center text-[11px] font-medium tabular-nums transition-colors sm:px-1.5 sm:text-xs",
                               raw === 0
                                 ? "text-muted-foreground"
                                 : month.isCurrent
@@ -551,8 +551,22 @@ export function RevenueChart() {
                           }}
                           title={`${month.fullLabel}: ${formatCents(month.revenueCents)} Umsatz, ${formatCents(month.marginCents)} Marge, ${month.count} Verkäufe`}
                         >
+                        {/*
+                          Deckende Fläche statt Transparenz.
+
+                          Vorher lagen Ausgaben und Marge bei 45–70 % Deckung
+                          über der fast schwarzen Karte. Beide Töne
+                          entsättigten dadurch ins Bräunliche bzw. Stahlblaue
+                          und waren aus zwei Metern kaum noch zu trennen. Der
+                          Verlauf dunkelt jetzt über die Farbe selbst ab, nicht
+                          über den Untergrund.
+                        */}
                         <span
-                          className="absolute inset-0 bg-gradient-to-b from-state-cost/70 to-state-cost/45"
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage:
+                              "linear-gradient(to bottom, var(--state-cost), color-mix(in srgb, var(--state-cost) 68%, #000))"
+                          }}
                           aria-hidden
                         />
                         {/*
@@ -565,17 +579,24 @@ export function RevenueChart() {
                           auseinanderzuhalten sein.
                         */}
                         <div
-                          className={cn(
-                            "absolute inset-x-0 top-0 bg-gradient-to-b transition-[height] duration-300 ease-out",
-                            month.isCurrent
-                              ? "from-state-live to-state-live/70"
-                              : "from-state-live/85 to-state-live/60 group-hover:from-state-live group-hover:to-state-live/70"
-                          )}
-                          style={{ height: `${marginShare}%` }}
+                          className="absolute inset-x-0 top-0 transition-[height] duration-300 ease-out"
+                          style={{
+                            height: `${marginShare}%`,
+                            backgroundImage: `linear-gradient(to bottom, var(--state-live), color-mix(in srgb, var(--state-live) ${month.isCurrent ? 78 : 70}%, #000))`
+                          }}
                         >
                           {/* Glanzkante — fängt das Licht an der Oberkante. */}
                           <span
                             className="absolute inset-x-0 top-0 h-px bg-white/35"
+                            aria-hidden
+                          />
+                          {/*
+                            Untere Kante: trennt Marge und Ausgaben sichtbar.
+                            Zwei deckende Flächen ohne Fuge lesen sich sonst
+                            als ein einziger Verlauf.
+                          */}
+                          <span
+                            className="absolute inset-x-0 bottom-0 h-px bg-black/45"
                             aria-hidden
                           />
                         </div>
@@ -800,7 +821,7 @@ function MeasureBar({
       {valueLabel && (
         <span
           className={cn(
-            "absolute left-1/2 -translate-x-1/2 rounded-md px-0.5 py-0.5 text-center text-[10px] font-medium tabular-nums whitespace-nowrap sm:px-1.5 sm:text-xs",
+            "absolute left-1/2 -translate-x-1/2 rounded-md px-0.5 py-0.5 text-center text-[11px] font-medium tabular-nums whitespace-nowrap sm:px-1.5 sm:text-xs",
             value === 0 && "text-muted-foreground",
             value !== 0 && !highlighted && "text-foreground/90"
           )}
@@ -1188,12 +1209,13 @@ function LineChart({
   Reserviert und hier deshalb nicht verwendet:
   `skope-accent` (Umsatz), `state-live` (Marge), `state-done` (Stück).
 
-  Kleinanzeigen trägt in beiden Listen dieselbe Farbe — es ist dieselbe Sache,
-  einmal als Herkunft des Kunden und einmal als Verkaufskanal.
+  Kleinanzeigen und eBay tragen in beiden Listen dieselbe Farbe — es ist
+  dieselbe Sache, einmal als Herkunft des Kunden und einmal als Verkaufskanal.
 */
 const SOURCE_COLOR: Record<CustomerSource, string> = {
   WEBSITE: "bg-state-ready",
   GOOGLE: "bg-state-info",
+  EBAY: "bg-chart-2",
   KLEINANZEIGEN: "bg-state-warn",
   SOCIAL_MEDIA: "bg-chart-4",
   EMPFEHLUNG: "bg-chart-3",
@@ -1205,6 +1227,7 @@ const SOURCE_COLOR: Record<CustomerSource, string> = {
 
 const CHANNEL_COLOR: Record<SaleChannel, string> = {
   SHOPIFY: "bg-state-ready",
+  EBAY: "bg-chart-2",
   KLEINANZEIGEN: "bg-state-warn",
   VOR_ORT: "bg-chart-3",
   TELEFON: "bg-chart-4",
@@ -1315,9 +1338,18 @@ export function OriginChart() {
 /* Gebundenes Kapital                                                  */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Farben der Prozessstufen.
+ *
+ * Deckungsgleich mit WORKFLOW_META: Dieselbe Stufe trug im Abzeichen eine
+ * andere Farbe als im Balken — „in Prüfung" war als Abzeichen blau und im
+ * Diagramm gelb. Wer die Farbe einmal gelernt hat, soll sie überall
+ * wiederfinden. Die vier Töne liegen bewusst auf vier verschiedenen
+ * Farbwinkeln: Grau, Blau, Orange, Türkis.
+ */
 const STAGE_COLOR: Record<string, string> = {
-  EINGEGANGEN: "bg-state-info",
-  IN_PRUEFUNG: "bg-state-warn",
+  EINGEGANGEN: "bg-state-neutral",
+  IN_PRUEFUNG: "bg-state-info",
   AUFBEREITUNG: "bg-state-progress",
   VERKAUFSBEREIT: "bg-state-ready"
 }
@@ -1481,7 +1513,7 @@ function ChartGrid({
           {ticks?.[index] && (
             <span
               className={cn(
-                "absolute left-0 -translate-y-1/2 pr-1.5 text-right text-[10px] tabular-nums text-muted-foreground/75 sm:pr-2 sm:text-xs",
+                "absolute left-0 -translate-y-1/2 pr-1.5 text-right text-[11px] tabular-nums text-muted-foreground/75 sm:pr-2 sm:text-xs",
                 AXIS_WIDTH
               )}
               style={{ top: `${offset}%` }}

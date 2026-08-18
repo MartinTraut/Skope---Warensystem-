@@ -21,38 +21,52 @@ import {
 
 import { createSeedData } from "@/lib/demo/seed"
 import type {
+  Article,
+  ArticleUnit,
   AuditEvent,
+  Category,
   ColumnMapping,
   CurrentUser,
   ImportBatch,
   IntegrationState,
+  PublicationProposal,
   Sale,
   SaleChannel,
-  Scooter
+  SavedMapping,
+  StockMovement,
+  StorageLocation,
+  Teardown
 } from "@/lib/domain/types"
 
 const STORAGE_KEY = "skope-cockpit-demo"
 /*
-  Version 4: Das Diagramm zeigt mehrere Kennzahlen gleichzeitig, aus
-  `chartPrefs.measure` wurde `chartPrefs.measures`.
+  Version 5: Umbau vom reinen Scooter-Bestand auf das Artikel-Modell.
+  Aus `scooters` werden `articles` + `units`, dazu kommen Kategorien,
+  Lagerplätze, Bewegungen, Ausschlachtungen und die Freigabeliste.
 
   Die Zahl muss bei jeder Änderung am gespeicherten Aufbau mitwachsen —
   sonst läuft `migrate` nicht, der alte Stand wird unverändert geladen und
   die Oberfläche greift auf ein Feld zu, das es dort nie gab.
 */
-const STORAGE_VERSION = 4
+const STORAGE_VERSION = 5
 
 /** Version der Sicherungsdatei. Wandert mit dem Datenmodell mit. */
 export const SNAPSHOT_VERSION = STORAGE_VERSION
 
 export interface CockpitState {
-  scooters: Scooter[]
+  categories: Category[]
+  locations: StorageLocation[]
+  articles: Article[]
+  units: ArticleUnit[]
+  movements: StockMovement[]
+  teardowns: Teardown[]
+  proposals: PublicationProposal[]
   sales: Sale[]
   activity: AuditEvent[]
   importBatches: ImportBatch[]
   integrations: IntegrationState
-  /** Zuletzt bestätigtes Spalten-Mapping — beschleunigt Folge-Importe. */
-  savedMapping: ColumnMapping[] | null
+  /** Zuletzt bestätigte Spalten-Mappings je Kategorie — beschleunigt Folge-Importe. */
+  savedMappings: SavedMapping[]
   user: CurrentUser
   /** UI-Vorliebe, bewusst mitpersistiert statt über einen eigenen Effekt. */
   sidebarCollapsed: boolean
@@ -68,11 +82,26 @@ export interface CockpitState {
   setChartPrefs(patch: Partial<ChartPrefs>): void
 
   /* Elementare Schreiboperationen */
-  upsertScooters(scooters: Scooter[]): void
-  patchScooter(id: string, patch: Partial<Scooter>): void
+  upsertCategories(categories: Category[]): void
+  removeCategory(id: string): void
+
+  upsertLocations(locations: StorageLocation[]): void
+  removeLocation(id: string): void
+
+  upsertArticles(articles: Article[]): void
   /** Änderung über eine Funktion — vermeidet Lost Updates bei Teilobjekten. */
-  updateScooter(id: string, updater: (scooter: Scooter) => Scooter): void
-  removeScooter(id: string): void
+  updateArticle(id: string, updater: (article: Article) => Article): void
+  removeArticle(id: string): void
+
+  upsertUnits(units: ArticleUnit[]): void
+  updateUnit(id: string, updater: (unit: ArticleUnit) => ArticleUnit): void
+  removeUnit(id: string): void
+
+  addMovements(movements: StockMovement[]): void
+  addTeardown(teardown: Teardown): void
+
+  setProposals(proposals: PublicationProposal[]): void
+  patchProposal(id: string, patch: Partial<PublicationProposal>): void
 
   addSale(sale: Sale): void
   patchSale(id: string, patch: Partial<Sale>): void
@@ -80,17 +109,12 @@ export interface CockpitState {
   addActivity(events: AuditEvent[]): void
 
   addImportBatch(batch: ImportBatch): void
-  setSavedMapping(mapping: ColumnMapping[]): void
+  setSavedMapping(categoryId: string, columns: ColumnMapping[]): void
 
   setIntegrations(patch: Partial<IntegrationState>): void
 
   /** Vollständiger Austausch des Datenbestands — für das Einspielen einer Sicherung. */
-  replaceAll(data: {
-    scooters: Scooter[]
-    sales: Sale[]
-    activity: AuditEvent[]
-    importBatches: ImportBatch[]
-  }): void
+  replaceAll(data: Partial<PersistedState>): void
 
   resetDemoData(): void
 }
@@ -180,6 +204,19 @@ const DEMO_USER: CurrentUser = {
   initials: "MT"
 }
 
+/**
+ * Fügt Datensätze ein oder ersetzt vorhandene — Reihenfolge bleibt erhalten.
+ *
+ * Ein `Map`-Umweg statt `filter` + `concat`: Bei einem Import mit mehreren
+ * hundert Zeilen ist der Unterschied zwischen linear und quadratisch spürbar.
+ */
+function mergeById<T extends { id: string }>(current: T[], incoming: T[]): T[] {
+  if (incoming.length === 0) return current
+  const byId = new Map(current.map((entry) => [entry.id, entry]))
+  for (const entry of incoming) byId.set(entry.id, entry)
+  return [...byId.values()]
+}
+
 /** Damit die Aktivitätsliste nicht unbegrenzt wächst. */
 const MAX_ACTIVITY_ENTRIES = 500
 
@@ -189,12 +226,18 @@ type PersistedState = ReturnType<typeof freshState>
 function freshState() {
   const seed = createSeedData()
   return {
-    scooters: seed.scooters,
+    categories: seed.categories,
+    locations: seed.locations,
+    articles: seed.articles,
+    units: seed.units,
+    movements: seed.movements,
+    teardowns: seed.teardowns,
+    proposals: seed.proposals,
     sales: seed.sales,
     activity: seed.activity,
     importBatches: seed.importBatches,
     integrations: initialIntegrations(),
-    savedMapping: null,
+    savedMappings: [] as SavedMapping[],
     user: DEMO_USER,
     sidebarCollapsed: false,
     chartPrefs: defaultChartPrefs()
@@ -206,34 +249,67 @@ export const useCockpitStore = create<CockpitState>()(
     (set) => ({
       ...freshState(),
 
-      upsertScooters: (incoming) =>
-        set((state) => {
-          const byId = new Map(state.scooters.map((s) => [s.id, s]))
-          for (const scooter of incoming) byId.set(scooter.id, scooter)
-          return { scooters: [...byId.values()] }
-        }),
+      upsertCategories: (incoming) =>
+        set((state) => ({ categories: mergeById(state.categories, incoming) })),
 
-      patchScooter: (id, patch) =>
+      removeCategory: (id) =>
         set((state) => ({
-          scooters: state.scooters.map((scooter) =>
-            scooter.id === id
-              ? { ...scooter, ...patch, updatedAt: new Date().toISOString() }
-              : scooter
+          categories: state.categories.filter((category) => category.id !== id)
+        })),
+
+      upsertLocations: (incoming) =>
+        set((state) => ({ locations: mergeById(state.locations, incoming) })),
+
+      removeLocation: (id) =>
+        set((state) => ({
+          locations: state.locations.filter((location) => location.id !== id)
+        })),
+
+      upsertArticles: (incoming) =>
+        set((state) => ({ articles: mergeById(state.articles, incoming) })),
+
+      updateArticle: (id, updater) =>
+        set((state) => ({
+          articles: state.articles.map((article) =>
+            article.id === id
+              ? { ...updater(article), updatedAt: new Date().toISOString() }
+              : article
           )
         })),
 
-      updateScooter: (id, updater) =>
+      removeArticle: (id) =>
         set((state) => ({
-          scooters: state.scooters.map((scooter) =>
-            scooter.id === id
-              ? { ...updater(scooter), updatedAt: new Date().toISOString() }
-              : scooter
+          articles: state.articles.filter((article) => article.id !== id)
+        })),
+
+      upsertUnits: (incoming) =>
+        set((state) => ({ units: mergeById(state.units, incoming) })),
+
+      updateUnit: (id, updater) =>
+        set((state) => ({
+          units: state.units.map((unit) =>
+            unit.id === id
+              ? { ...updater(unit), updatedAt: new Date().toISOString() }
+              : unit
           )
         })),
 
-      removeScooter: (id) =>
+      removeUnit: (id) =>
+        set((state) => ({ units: state.units.filter((unit) => unit.id !== id) })),
+
+      addMovements: (incoming) =>
+        set((state) => ({ movements: [...incoming, ...state.movements] })),
+
+      addTeardown: (teardown) =>
+        set((state) => ({ teardowns: [teardown, ...state.teardowns] })),
+
+      setProposals: (proposals) => set({ proposals }),
+
+      patchProposal: (id, patch) =>
         set((state) => ({
-          scooters: state.scooters.filter((scooter) => scooter.id !== id)
+          proposals: state.proposals.map((proposal) =>
+            proposal.id === id ? { ...proposal, ...patch } : proposal
+          )
         })),
 
       addSale: (sale) => set((state) => ({ sales: [sale, ...state.sales] })),
@@ -255,7 +331,15 @@ export const useCockpitStore = create<CockpitState>()(
       addImportBatch: (batch) =>
         set((state) => ({ importBatches: [batch, ...state.importBatches] })),
 
-      setSavedMapping: (mapping) => set({ savedMapping: mapping }),
+      setSavedMapping: (categoryId, columns) =>
+        set((state) => ({
+          savedMappings: [
+            { categoryId, columns, updatedAt: new Date().toISOString() },
+            ...state.savedMappings.filter(
+              (entry) => entry.categoryId !== categoryId
+            )
+          ]
+        })),
 
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
@@ -265,7 +349,7 @@ export const useCockpitStore = create<CockpitState>()(
       setIntegrations: (patch) =>
         set((state) => ({ integrations: { ...state.integrations, ...patch } })),
 
-      replaceAll: (data) => set({ ...data }),
+      replaceAll: (data) => set((state) => ({ ...state, ...data })),
 
       resetDemoData: () => set({ ...freshState() })
     }),
@@ -275,12 +359,18 @@ export const useCockpitStore = create<CockpitState>()(
       storage: createJSONStorage(createGuardedStorage),
       // Nur Daten persistieren, keine Funktionen.
       partialize: (state) => ({
-        scooters: state.scooters,
+        categories: state.categories,
+        locations: state.locations,
+        articles: state.articles,
+        units: state.units,
+        movements: state.movements,
+        teardowns: state.teardowns,
+        proposals: state.proposals,
         sales: state.sales,
         activity: state.activity,
         importBatches: state.importBatches,
         integrations: state.integrations,
-        savedMapping: state.savedMapping,
+        savedMappings: state.savedMappings,
         user: state.user,
         sidebarCollapsed: state.sidebarCollapsed,
         chartPrefs: state.chartPrefs
@@ -298,6 +388,28 @@ export const useCockpitStore = create<CockpitState>()(
         if (!state) return undefined
 
         const base = freshState()
+
+        /*
+          Version 5 hat das Datenmodell im Kern getauscht: Aus einer Liste
+          `scooters` wurden Artikel und Einzelstücke. Ein Stand von vorher
+          lässt sich nicht sinnvoll hochrechnen — die Zuordnung zu Bereichen,
+          Nummernkreisen und Merkmalsfeldern existierte dort schlicht nicht.
+
+          Statt zu raten wird auf den Beispielbestand zurückgesetzt und der
+          Grund benannt. Ein stillschweigend halb übernommener Bestand wäre
+          das schlechtere Ergebnis: Er sähe echt aus und wäre es nicht.
+        */
+        if (!Array.isArray(state.articles)) {
+          reportPersistenceProblem({
+            kind: "read",
+            message:
+              "Der gespeicherte Stand stammt aus der Scooter-Fassung des Cockpits " +
+              "und lässt sich nicht auf das neue Artikel-Modell übertragen. Es wird " +
+              "mit dem Beispielbestand weitergearbeitet."
+          })
+          return base
+        }
+
         return {
           ...base,
           ...state,
@@ -305,21 +417,22 @@ export const useCockpitStore = create<CockpitState>()(
           user: { ...base.user, ...state.user },
           sales: (state.sales ?? []).map((sale) => ({
             ...sale,
-            // Ab Version 2 mitgeführt, damit ein Wiederholungsversuch nach
-            // dem Neuladen keine zweite Zeile in der Umsatztabelle anlegt.
             sheetsRowNumber: sale.sheetsRowNumber ?? null,
-            // Ab Version 3: Herkunft des Kunden. Altbestände wissen sie nicht —
-            // "UNBEKANNT" ist die ehrliche Antwort, nicht ein geratener Kanal.
             customerSource: sale.customerSource ?? "UNBEKANNT",
             customerRegion: sale.customerRegion ?? "",
             saleLocation: sale.saleLocation ?? ""
           })),
-          scooters: state.scooters ?? base.scooters,
+          categories: state.categories ?? base.categories,
+          locations: state.locations ?? base.locations,
+          units: state.units ?? [],
+          movements: state.movements ?? [],
+          teardowns: state.teardowns ?? [],
+          proposals: state.proposals ?? [],
           activity: state.activity ?? [],
           importBatches: state.importBatches ?? [],
           sidebarCollapsed: state.sidebarCollapsed ?? false,
           chartPrefs: migrateChartPrefs(base.chartPrefs, state.chartPrefs),
-          savedMapping: state.savedMapping ?? null
+          savedMappings: state.savedMappings ?? []
         }
       },
       onRehydrateStorage: () => (_state, error) => {

@@ -6,7 +6,8 @@ import { toast } from "sonner"
 import { FileWarning, PackageOpen, Plus, Upload } from "lucide-react"
 
 import { WorkRow } from "./work-row"
-import { NewScooterDialog } from "@/components/scooters/new-scooter-dialog"
+import { NewArticleDialog } from "@/components/inventory/new-article-dialog"
+import { NewUnitDialog } from "@/components/units/new-unit-dialog"
 import {
   EmptyState,
   Metric,
@@ -18,11 +19,11 @@ import { MetricGridSkeleton, TableSkeleton } from "@/components/skope/skeletons"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
 import { DateTimeText } from "@/components/skope/client-time"
-import { isInStock } from "@/lib/domain/status"
 import {
   useHydrated,
   useImportBatches,
-  useScooters,
+  useUnitLookup,
+  useUnitsInStock,
 } from "@/hooks/use-cockpit"
 
 /**
@@ -31,27 +32,26 @@ import {
  */
 export function InboundView() {
   const hydrated = useHydrated()
-  const scooters = useScooters()
+  const stock = useUnitsInStock()
+  const lookup = useUnitLookup()
   const batches = useImportBatches()
-  const [createOpen, setCreateOpen] = useState(false)
+  const [unitOpen, setUnitOpen] = useState(false)
+  const [articleOpen, setArticleOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
 
-  const stock = scooters.filter(isInStock)
   const arrived = stock
-    .filter((scooter) => scooter.workflowStatus === "EINGEGANGEN")
+    .filter((unit) => unit.workflowStatus === "EINGEGANGEN")
     .sort(
       (a, b) =>
         new Date(b.arrivalDate).getTime() - new Date(a.arrivalDate).getTime()
     )
-  const unchecked = stock.filter(
-    (scooter) => scooter.inspection.completedAt === null
-  )
-  const missingDocuments = stock.filter((scooter) => !scooter.documents.abe)
+  const unchecked = stock.filter((unit) => unit.inspection.completedAt === null)
+  const missingDocuments = stock.filter((unit) => !unit.documents.abe)
 
-  async function startInspection(scooterId: string, scooterNumber: string) {
-    setBusy(scooterId)
-    const result = await repositories.scooters.updateWorkflowStatus(
-      scooterId,
+  async function startInspection(unitId: string, unitNumber: string) {
+    setBusy(unitId)
+    const result = await repositories.units.updateWorkflowStatus(
+      unitId,
       "IN_PRUEFUNG"
     )
     setBusy(null)
@@ -60,14 +60,14 @@ export function InboundView() {
       toast.error("Prüfung nicht gestartet", { description: result.message })
       return
     }
-    toast.success(`Prüfung für ${scooterNumber} gestartet`)
+    toast.success(`Prüfung für ${unitNumber} gestartet`)
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Wareneingang"
-        description="Neu eingetroffene Geräte erfassen, prüfen und in den Prozess geben."
+        description="Neu eingetroffene Geräte erfassen und in den Prozess geben. Ersatzteile werden als Zugang auf ihren Artikel gebucht."
         actions={
           <>
             <Link
@@ -80,9 +80,17 @@ export function InboundView() {
               <Upload className="size-4" />
               Import starten
             </Link>
-            <Button className="h-10 gap-2 px-4" onClick={() => setCreateOpen(true)}>
+            <Button
+              variant="outline"
+              className="h-10 gap-2 px-4"
+              onClick={() => setArticleOpen(true)}
+            >
               <Plus className="size-4" />
-              Scooter erfassen
+              Artikel anlegen
+            </Button>
+            <Button className="h-10 gap-2 px-4" onClick={() => setUnitOpen(true)}>
+              <Plus className="size-4" />
+              Gerät erfassen
             </Button>
           </>
         }
@@ -136,22 +144,22 @@ export function InboundView() {
           />
         ) : (
           <ul className="divide-y divide-skope-line">
-            {arrived.map((scooter) => (
+            {arrived.map((unit) => (
               <WorkRow
-                key={scooter.id}
-                scooter={scooter}
+                key={unit.id}
+                unit={unit}
+                article={lookup.article(unit)}
+                locationCode={lookup.locationCode(unit)}
                 warning={
-                  !scooter.documents.abe ? "ABE fehlt — nachfordern" : undefined
+                  !unit.documents.abe ? "ABE fehlt — nachfordern" : undefined
                 }
                 action={
                   <Button
                     className="h-10 px-3.5"
-                    disabled={busy === scooter.id}
-                    onClick={() =>
-                      startInspection(scooter.id, scooter.scooterNumber)
-                    }
+                    disabled={busy === unit.id}
+                    onClick={() => startInspection(unit.id, unit.unitNumber)}
                   >
-                    {busy === scooter.id ? "…" : "Prüfung starten"}
+                    {busy === unit.id ? "…" : "Prüfung starten"}
                   </Button>
                 }
               />
@@ -164,14 +172,16 @@ export function InboundView() {
         <Panel className="overflow-hidden">
           <PanelHeader
             title="Dokumente fehlen"
-            description="Ohne ABE kann kein Scooter verkaufsbereit gesetzt werden."
+            description="Ohne ABE kann kein zulassungspflichtiges Gerät verkaufsbereit gesetzt werden."
           />
           <ul className="divide-y divide-skope-line">
-            {missingDocuments.slice(0, 8).map((scooter) => (
+            {missingDocuments.slice(0, 8).map((unit) => (
               <WorkRow
-                key={scooter.id}
-                scooter={scooter}
-                warning={scooter.documents.note || "ABE nicht hinterlegt"}
+                key={unit.id}
+                unit={unit}
+                article={lookup.article(unit)}
+                locationCode={lookup.locationCode(unit)}
+                warning={unit.documents.note || "ABE nicht hinterlegt"}
                 action={null}
               />
             ))}
@@ -194,7 +204,7 @@ export function InboundView() {
         {batches.length === 0 ? (
           <EmptyState
             title="Noch kein Import"
-            description="Lieferantenlisten lassen sich als CSV einlesen und den SKOPE-Feldern zuordnen."
+            description="Lieferantenlisten lassen sich als CSV einlesen und je Bereich den Feldern zuordnen — auch den eigenen Merkmalsfeldern."
           />
         ) : (
           <ul className="divide-y divide-skope-line">
@@ -227,7 +237,8 @@ export function InboundView() {
         )}
       </Panel>
 
-      <NewScooterDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <NewUnitDialog open={unitOpen} onOpenChange={setUnitOpen} />
+      <NewArticleDialog open={articleOpen} onOpenChange={setArticleOpen} />
     </div>
   )
 }

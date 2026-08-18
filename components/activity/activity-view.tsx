@@ -81,7 +81,7 @@ export function ActivityView() {
 
       if (needle) {
         const haystack = [
-          event.scooterNumber ?? "",
+          event.itemNumber ?? "",
           event.action,
           event.detail,
           event.actor,

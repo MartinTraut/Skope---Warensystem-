@@ -18,8 +18,11 @@ import { repositories } from "@/lib/data/demo-repository"
 import { runAction } from "@/lib/data/run-action"
 import { formatCents, formatCentsCompact } from "@/lib/domain/money"
 import { repairCostsCents } from "@/lib/domain/metrics"
-import { isInStock } from "@/lib/domain/status"
-import { useHydrated, useScooters } from "@/hooks/use-cockpit"
+import {
+  useHydrated,
+  useUnitLookup,
+  useUnitsInStock,
+} from "@/hooks/use-cockpit"
 
 /** Arbeitsliste Aufbereitung: offene Reparaturen und ausstehende Reinigungen. */
 export function RefurbishmentView() {
@@ -31,19 +34,20 @@ export function RefurbishmentView() {
   */
   const [cleaningId, setCleaningId] = useState<string | null>(null)
   const hydrated = useHydrated()
-  const scooters = useScooters().filter(isInStock)
+  const units = useUnitsInStock()
+  const lookup = useUnitLookup()
 
-  const inRefurbishment = scooters.filter(
-    (scooter) => scooter.workflowStatus === "AUFBEREITUNG"
+  const inRefurbishment = units.filter(
+    (unit) => unit.workflowStatus === "AUFBEREITUNG"
   )
-  const openRepairs = scooters.filter((scooter) =>
-    scooter.repairs.some((repair) => repair.status !== "ERLEDIGT")
+  const openRepairs = units.filter((unit) =>
+    unit.repairs.some((repair) => repair.status !== "ERLEDIGT")
   )
   const needsCleaning = inRefurbishment.filter(
-    (scooter) => !scooter.cleaning.done
+    (unit) => !unit.cleaning.done
   )
   const openCosts = openRepairs.reduce(
-    (sum, scooter) => sum + repairCostsCents(scooter),
+    (sum, unit) => sum + repairCostsCents(unit),
     0
   )
 
@@ -108,20 +112,22 @@ export function RefurbishmentView() {
           />
         ) : (
           <ul className="divide-y divide-skope-line">
-            {inRefurbishment.map((scooter) => {
-              const open = scooter.repairs.filter((r) => r.status !== "ERLEDIGT")
-              const costs = repairCostsCents(scooter)
+            {inRefurbishment.map((unit) => {
+              const open = unit.repairs.filter((r) => r.status !== "ERLEDIGT")
+              const costs = repairCostsCents(unit)
 
               return (
                 <WorkRow
-                  key={scooter.id}
-                  scooter={scooter}
+                  key={unit.id}
+                  unit={unit}
+                  article={lookup.article(unit)}
+                  locationCode={lookup.locationCode(unit)}
                   meta={
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>
-                        {scooter.repairs.length === 0
+                        {unit.repairs.length === 0
                           ? "Keine Reparaturen erfasst"
-                          : `${open.length} von ${scooter.repairs.length} Reparaturen offen`}
+                          : `${open.length} von ${unit.repairs.length} Reparaturen offen`}
                       </span>
                       {costs > 0 && (
                         <span className="tabular-nums">
@@ -130,35 +136,35 @@ export function RefurbishmentView() {
                       )}
                       <span
                         className={
-                          scooter.cleaning.done
+                          unit.cleaning.done
                             ? "text-state-ready"
                             : "text-state-warn"
                         }
                       >
-                        {scooter.cleaning.done
+                        {unit.cleaning.done
                           ? "Reinigung erledigt"
                           : "Reinigung offen"}
                       </span>
                     </div>
                   }
                   action={
-                    !scooter.cleaning.done && open.length === 0 ? (
+                    !unit.cleaning.done && open.length === 0 ? (
                       <Button
                         className="h-10 px-3.5"
-                        disabled={cleaningId === scooter.id}
+                        disabled={cleaningId === unit.id}
                         onClick={async () => {
-                          setCleaningId(scooter.id)
+                          setCleaningId(unit.id)
                           await runAction(
-                            repositories.scooters.setCleaning(scooter.id, true),
+                            repositories.units.setCleaning(unit.id, true),
                             {
-                              success: `${scooter.scooterNumber}: Reinigung erledigt`,
+                              success: `${unit.unitNumber}: Reinigung erledigt`,
                               failure: "Reinigung nicht gespeichert",
                             }
                           )
                           setCleaningId(null)
                         }}
                       >
-                        {cleaningId === scooter.id ? "…" : "Gereinigt"}
+                        {cleaningId === unit.id ? "…" : "Gereinigt"}
                       </Button>
                     ) : null
                   }
@@ -176,21 +182,21 @@ export function RefurbishmentView() {
             description="Nach Gerät gruppiert, mit Kosten und Status."
           />
           <ul className="divide-y divide-skope-line">
-            {openRepairs.map((scooter) => (
-              <li key={scooter.id} className="px-4 py-4 sm:px-5">
+            {openRepairs.map((unit) => (
+              <li key={unit.id} className="px-4 py-4 sm:px-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <Link
-                    href={`/scooters/${scooter.id}`}
+                    href={`/units/${unit.id}`}
                     className="rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-accent"
                   >
-                    {scooter.scooterNumber}
+                    {unit.unitNumber}
                   </Link>
                   <span className="text-xs text-muted-foreground">
-                    {scooter.manufacturer} {scooter.model}
+                    {lookup.label(unit)}
                   </span>
                 </div>
                 <ul className="mt-2.5 space-y-1.5">
-                  {scooter.repairs
+                  {unit.repairs
                     .filter((repair) => repair.status !== "ERLEDIGT")
                     .map((repair) => (
                       <li

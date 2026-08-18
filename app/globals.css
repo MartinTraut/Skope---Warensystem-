@@ -78,6 +78,26 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Fließtext-Skala, eine Stufe über dem Tailwind-Standard.
+ *
+ * Das Cockpit wird über Stunden gelesen, nicht überflogen — 12 px für die
+ * Hälfte aller Tabellenzellen war zu knapp. Angehoben wird zentral die
+ * Skala, nicht die Wurzelgröße: `rem` trägt hier auch Abstände, Icons und
+ * Radien, eine größere Wurzel hätte das ganze Layout aufgeblasen statt nur
+ * den Text. Zeilenhöhen wachsen mit, sonst kleben die Zeilen aneinander.
+ */
+@theme {
+    --text-xs: 0.8125rem;
+    --text-xs--line-height: 1.15rem;
+    --text-sm: 0.9375rem;
+    --text-sm--line-height: 1.4rem;
+    --text-base: 1.0625rem;
+    --text-base--line-height: 1.6rem;
+    --text-lg: 1.1875rem;
+    --text-lg--line-height: 1.8rem;
+}
+
 /* Das Cockpit ist bewusst nur dunkel. Beide Selektoren tragen dieselbe
    Palette, damit die Oberfläche auch ohne gesetzte Theme-Klasse korrekt ist. */
 :root,
@@ -130,7 +150,15 @@
      */
     --state-neutral: #9aa4b0;
     --state-info: #3f9dff;
-    --state-progress: #e2b452;
+    /*
+     * Laufende Arbeit.
+     *
+     * Vorher ein gedecktes Gold (#e2b452) — direkt neben --state-warn (#ffb01f)
+     * waren „in Prüfung" und „in Aufbereitung" im Balkendiagramm praktisch
+     * derselbe Ton. Jetzt eindeutig Orange: eigener Farbwinkel, gleiche
+     * Helligkeit, weiterhin warm.
+     */
+    --state-progress: #ff8a3d;
     --state-ready: #06cfa6;
     --state-live: #12c9f2;
     --state-warn: #ffb01f;
@@ -252,21 +280,21 @@
 
     /* Fluid Type — skaliert mit dem Viewport, nie in harten Sprüngen. */
     .type-display {
-        font-size: clamp(1.5rem, 1.1vw + 1.15rem, 2.125rem);
+        font-size: clamp(1.625rem, 1.1vw + 1.275rem, 2.25rem);
         line-height: 1.1;
         letter-spacing: -0.025em;
         font-weight: 500;
     }
 
     .type-page-title {
-        font-size: clamp(1.25rem, 0.7vw + 1.05rem, 1.625rem);
+        font-size: clamp(1.375rem, 0.7vw + 1.175rem, 1.75rem);
         line-height: 1.15;
         letter-spacing: -0.02em;
         font-weight: 500;
     }
 
     .type-section {
-        font-size: clamp(0.9375rem, 0.25vw + 0.875rem, 1.0625rem);
+        font-size: clamp(1rem, 0.25vw + 0.9375rem, 1.125rem);
         line-height: 1.3;
         letter-spacing: -0.01em;
         font-weight: 500;
@@ -303,18 +331,18 @@
      * text-sm reichen aus und lassen sich zentral ändern.
      */
     .type-body-sm {
-        font-size: 0.8125rem;
+        font-size: 0.875rem;
         line-height: 1.5;
     }
 
     .type-caption {
-        font-size: 0.75rem;
+        font-size: 0.8125rem;
         line-height: 1.45;
     }
 
     /* Kleines Label über Werten — Cockpit-Anmutung. */
     .type-label {
-        font-size: 0.6875rem;
+        font-size: 0.75rem;
         line-height: 1.2;
         letter-spacing: 0.09em;
         text-transform: uppercase;

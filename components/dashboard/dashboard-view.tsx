@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -8,9 +7,9 @@ import {
   Boxes,
   CheckCircle2,
   ClipboardList,
-  Plus,
+  Inbox,
+  Layers,
   Radio,
-  ShoppingBag,
   TrendingUp,
   Upload,
   Wrench,
@@ -20,44 +19,52 @@ import { ActivityFeed } from "./activity-feed"
 import { CapitalChart, OriginChart, RevenueChart } from "./charts"
 import { IntegrationStatus } from "./integration-status"
 import { ProcessPipeline } from "./process-pipeline"
-import { NewScooterDialog } from "@/components/scooters/new-scooter-dialog"
-import { ScooterTable } from "@/components/scooters/scooter-table"
+import { InventoryTable } from "@/components/inventory/inventory-table"
 import {
+  EmptyState,
   Panel,
   PanelHeader,
   PageHeader,
 } from "@/components/skope/primitives"
 import { MetricGridSkeleton, TableSkeleton } from "@/components/skope/skeletons"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { formatCentsCompact } from "@/lib/domain/money"
+import { buttonVariants } from "@/components/ui/button"
+import { articleLabel } from "@/lib/domain/article-factory"
+import { formatCents, formatCentsCompact, formatNumber } from "@/lib/domain/money"
 import {
+  useArticleViews,
+  useBelowReorderLevel,
   useDashboardMetrics,
   useHydrated,
-  useScooters,
+  useOpenProposals,
+  useSlowMovers,
 } from "@/hooks/use-cockpit"
-import { isInStock } from "@/lib/domain/status"
 import { cn } from "@/lib/utils"
 
-/** Startseite des Cockpits: Zustand des Betriebs auf einen Blick. */
+/**
+ * Startseite des Cockpits.
+ *
+ * Der Aufbau folgt dem, was den Betrieb tatsächlich kostet: oben Umsatz und
+ * Lagerwert, dann die Arbeit, die wartet — Freigaben, Nachbestellungen,
+ * Ladenhüter. Das Lager ist das eigentliche Thema, nicht die Geräteliste.
+ */
 export function DashboardView() {
   const hydrated = useHydrated()
   const metrics = useDashboardMetrics()
-  const scooters = useScooters()
-  const [createOpen, setCreateOpen] = useState(false)
+  const views = useArticleViews()
+  const openProposals = useOpenProposals()
+  const belowReorder = useBelowReorderLevel()
+  const slowMovers = useSlowMovers()
 
-  // Zuletzt bearbeitete Geräte aus dem aktiven Bestand.
-  const recent = [...scooters]
-    .filter(isInStock)
-    .sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    )
+  const recent = [...views]
+    .filter((view) => view.article.archivedAt === null)
+    .sort((a, b) => b.article.updatedAt.localeCompare(a.article.updatedAt))
     .slice(0, 8)
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={`${greeting()}, Martin`}
-        description="Hier ist der aktuelle Überblick über deinen SKOPE-Bestand."
+        description="Lager, Aufbereitung und Kanäle auf einen Blick."
         actions={
           <>
             <Link
@@ -70,15 +77,19 @@ export function DashboardView() {
               <Upload className="size-4" />
               Import starten
             </Link>
-            <Button className="h-10 gap-2 px-4" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" />
-              Scooter hinzufügen
-            </Button>
+            <Link
+              href="/proposals"
+              className={buttonVariants({ className: "h-10 gap-2 px-4" })}
+            >
+              <Inbox className="size-4" />
+              {openProposals.length > 0
+                ? `${openProposals.length} Freigaben`
+                : "Freigaben"}
+            </Link>
           </>
         }
       />
 
-      {/* Warnleiste nur, wenn es wirklich etwas zu tun gibt. */}
       {hydrated && metrics.failedSyncs > 0 && (
         <Link
           href="/integrations"
@@ -87,7 +98,7 @@ export function DashboardView() {
           <AlertTriangle className="size-4 shrink-0 text-state-error" />
           <p className="min-w-0 flex-1 text-sm text-foreground">
             <span className="font-medium">
-              {metrics.failedSyncs} fehlgeschlagene Synchronisation
+              {metrics.failedSyncs} fehlgeschlagene Übertragung
               {metrics.failedSyncs === 1 ? "" : "en"}
             </span>{" "}
             <span className="text-muted-foreground">
@@ -98,17 +109,10 @@ export function DashboardView() {
         </Link>
       )}
 
-      {/* Kennzahlen */}
       {!hydrated ? (
         <MetricGridSkeleton />
       ) : (
         <div className="grid animate-rise gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
-          {/*
-            Führungszone: Umsatz und Marge tragen die Entscheidung und
-            bekommen deshalb Fläche und die große Displaygröße. Vorher standen
-            acht gleich große Kacheln nebeneinander — ein Kartenfriedhof ohne
-            Aussage darüber, worauf zuerst zu schauen ist.
-          */}
           <Panel accent className="p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <p className="type-label">Umsatz diesen Monat</p>
@@ -121,31 +125,42 @@ export function DashboardView() {
               aus {metrics.soldThisMonth} Verkäufen über alle Kanäle
             </p>
 
-            <div className="mt-5 flex items-end justify-between gap-4 border-t border-skope-line pt-4">
+            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-skope-line pt-4">
               <div>
                 <p className="type-label">Ø Marge</p>
                 <p className="type-metric mt-1.5 text-foreground">
                   {formatCentsCompact(metrics.averageMarginCents)}
                 </p>
               </div>
-              <p className="type-caption max-w-[14rem] text-right text-muted-foreground">
-                Operative Rechengröße, kein steuerlicher Gewinn.
-              </p>
+              <div>
+                <p className="type-label">Lagerwert</p>
+                <p className="type-metric mt-1.5 text-foreground">
+                  {formatCentsCompact(metrics.stockValueCents)}
+                </p>
+              </div>
             </div>
+            <p className="type-caption mt-3 text-muted-foreground">
+              Operative Rechengröße, kein steuerlicher Gewinn.
+            </p>
           </Panel>
 
-          {/*
-            Bestandszahlen als dichtes Raster in einem gemeinsamen Panel statt
-            als sechs Einzelkarten — die Trennlinien reichen als Gliederung.
-          */}
           <Panel className="overflow-hidden">
             <div className="grid grid-cols-2 divide-x divide-y divide-skope-line sm:grid-cols-3">
               <StockCell
-                label="Im Bestand"
-                value={metrics.inStock}
+                label="Artikel"
+                value={metrics.articleCount}
+                hint={`${formatNumber(metrics.pieceCount)} Stück im Lager`}
+                icon={<Layers className="size-4" />}
+                tone="text-state-info"
+                href="/inventory"
+              />
+              <StockCell
+                label="Geräte im Bestand"
+                value={metrics.unitsInStock}
                 hint={`${metrics.inbound} im Wareneingang`}
                 icon={<Boxes className="size-4" />}
                 tone="text-state-info"
+                href="/inventory?art=SERIALISIERT"
               />
               <StockCell
                 label="Verkaufsbereit"
@@ -160,6 +175,7 @@ export function DashboardView() {
                 hint={`${metrics.inInspection} in Prüfung`}
                 icon={<Wrench className="size-4" />}
                 tone="text-state-warn"
+                href="/refurbishment"
               />
               <StockCell
                 label="Inseriert"
@@ -169,32 +185,20 @@ export function DashboardView() {
                 tone="text-state-live"
               />
               <StockCell
-                label="Reserviert"
-                value={metrics.reserved}
-                hint="für Interessenten"
+                label="Offene Freigaben"
+                value={metrics.openProposals}
+                hint="fertige Inserate, ein Klick"
                 icon={<ClipboardList className="size-4" />}
-                tone="text-state-done"
-              />
-              <StockCell
-                label="Verkauft im Monat"
-                value={metrics.soldThisMonth}
-                hint="alle Kanäle"
-                icon={<ShoppingBag className="size-4" />}
                 tone="text-skope-accent"
+                href="/proposals"
               />
             </div>
           </Panel>
         </div>
       )}
 
-      {/*
-        Auswertung: Verlauf und Verteilung. Die Kacheln darüber sagen, wie es
-        gerade steht — hier steht, wie es dahin kam und woraus der Umsatz
-        besteht.
-      */}
       {hydrated && (
         <div className="grid animate-rise items-start gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-          {/* Links die Geldthemen gestapelt, rechts die Herkunft am Stück. */}
           <div className="space-y-6">
             <RevenueChart />
             <CapitalChart />
@@ -203,37 +207,117 @@ export function DashboardView() {
         </div>
       )}
 
+      {hydrated && (belowReorder.length > 0 || slowMovers.length > 0) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {belowReorder.length > 0 && (
+            <Panel tone="warn" className="overflow-hidden">
+              <PanelHeader
+                tone="warn"
+                title="Unter Meldebestand"
+                description="Diese Artikel gehen zur Neige — nachbestellen oder aus einer Ausschlachtung auffüllen."
+                icon={<AlertTriangle className="size-4" />}
+              />
+              <ul className="divide-y divide-skope-line">
+                {belowReorder.slice(0, 6).map((view) => (
+                  <li key={view.article.id}>
+                    <Link
+                      href={`/inventory/${view.article.id}`}
+                      className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-surface-sunken sm:px-5"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm text-foreground">
+                          {articleLabel(view.article)}
+                        </span>
+                        <span className="block font-mono text-xs text-muted-foreground">
+                          {view.article.sku}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block font-mono text-sm text-state-warn tabular-nums">
+                          {view.stock.quantity}
+                        </span>
+                        <span className="block type-caption text-muted-foreground">
+                          von {view.stock.reorderLevel}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
+          {slowMovers.length > 0 && (
+            <Panel className="overflow-hidden">
+              <PanelHeader
+                title="Ladenhüter"
+                description="Kapital, das im Regal steht. Je länger es liegt, desto teurer wird es."
+              />
+              <ul className="divide-y divide-skope-line">
+                {slowMovers.slice(0, 6).map((entry) => (
+                  <li key={`${entry.articleId}:${entry.unitId ?? "artikel"}`}>
+                    <Link
+                      href={
+                        entry.unitId
+                          ? `/units/${entry.unitId}`
+                          : `/inventory/${entry.articleId}`
+                      }
+                      className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-surface-sunken sm:px-5"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm text-foreground">
+                          {entry.label}
+                        </span>
+                        <span className="block type-caption text-muted-foreground">
+                          {entry.days} Tage im Bestand
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-mono text-sm text-foreground tabular-nums">
+                        {formatCents(entry.tiedCents)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+        </div>
+      )}
+
       <ProcessPipeline />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Panel className="overflow-hidden">
           <PanelHeader
-            title="Aktuelle Scooter"
-            description="Zuletzt bearbeitete Geräte aus dem aktiven Bestand."
+            title="Zuletzt bearbeitet"
+            description="Artikel, an denen zuletzt etwas passiert ist."
             action={
               <Link
-                href="/scooters"
+                href="/inventory"
                 className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
               >
-                Alle {metrics.inStock}
+                Alle {metrics.articleCount}
                 <ArrowUpRight className="size-3.5" />
               </Link>
             }
           />
           {!hydrated ? (
             <TableSkeleton rows={6} />
-          ) : (
-            <ScooterTable
-              scooters={recent}
-              variant="compact"
-              emptyTitle="Kein aktiver Bestand"
-              emptyDescription="Lege einen Scooter an oder importiere eine Lieferantenliste."
-              emptyAction={
-                <Button className="h-10 px-4" onClick={() => setCreateOpen(true)}>
-                  Scooter hinzufügen
-                </Button>
+          ) : recent.length === 0 ? (
+            <EmptyState
+              title="Noch kein Bestand"
+              description="Lege einen Artikel an oder importiere eine Lieferantenliste."
+              action={
+                <Link
+                  href="/import"
+                  className={buttonVariants({ className: "h-10 px-4" })}
+                >
+                  Lieferung importieren
+                </Link>
               }
             />
+          ) : (
+            <InventoryTable views={recent} compact />
           )}
         </Panel>
 
@@ -242,8 +326,6 @@ export function DashboardView() {
           <ActivityFeed limit={7} />
         </div>
       </div>
-
-      <NewScooterDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )
 }
@@ -259,9 +341,9 @@ function greeting(): string {
  * Einzelne Bestandszahl im dichten Raster.
  *
  * Bewusst ohne eigene Kante und Fläche — die Zelle ist Teil eines Panels,
- * keine zweite Karte darin. Die Farbe des Symbols ist dieselbe wie im
- * Statusabzeichen der jeweiligen Stufe: Wer „grün" gelernt hat, findet
- * „verkaufsbereit" ohne zu lesen.
+ * keine zweite Karte darin. Wo ein Ziel existiert, ist die Zelle zugleich der
+ * Weg dorthin: Eine Zahl, die eine Arbeitsliste meint, soll man antippen
+ * können.
  */
 function StockCell({
   label,
@@ -269,15 +351,17 @@ function StockCell({
   hint,
   icon,
   tone,
+  href,
 }: {
   label: string
   value: number
   hint: string
   icon: React.ReactNode
   tone: string
+  href?: string
 }) {
-  return (
-    <div className="group -mt-px -ml-px p-4 transition-colors hover:bg-surface-sunken">
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <p className="type-label">{label}</p>
         <span className={cn("shrink-0", tone)} aria-hidden>
@@ -285,9 +369,20 @@ function StockCell({
         </span>
       </div>
       <p className="mt-2.5 text-2xl leading-none font-medium tabular-nums text-foreground">
-        {value}
+        {formatNumber(value)}
       </p>
       <p className="type-caption mt-1.5 truncate text-muted-foreground">{hint}</p>
-    </div>
+    </>
+  )
+
+  const className =
+    "group -mt-px -ml-px block p-4 transition-colors hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+
+  return href ? (
+    <Link href={href} className={className}>
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
   )
 }

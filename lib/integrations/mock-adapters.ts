@@ -6,11 +6,11 @@
  * mit `isMock = true` gekennzeichnet, damit die Oberfläche das ehrlich anzeigt.
  */
 
-import type { Sale, Scooter } from "@/lib/domain/types"
-import { getListing, modelLabel } from "@/lib/domain/status"
+import type { Sale } from "@/lib/domain/types"
 import type {
   AdapterResult,
   ImportSource,
+  ListingPayload,
   MarketplaceAdapter,
   ParsedTable,
   PublishResult,
@@ -63,11 +63,13 @@ export class MockShopifyAdapter implements MarketplaceAdapter {
   constructor(private readonly controls: MockControls) {}
 
   /**
-   * Idempotent: Existiert bereits eine Product-ID auf dem Listing, wird
-   * dieselbe wieder verwendet statt ein zweites Produkt anzulegen. Genau das
-   * muss die spätere echte Implementierung auch tun.
+   * Idempotent: Existiert bereits eine Product-ID am Angebot, wird dieselbe
+   * wieder verwendet statt ein zweites Produkt anzulegen. Genau das muss die
+   * spätere echte Implementierung auch tun.
    */
-  async publishProduct(scooter: Scooter): Promise<AdapterResult<PublishResult>> {
+  async publishProduct(
+    payload: ListingPayload
+  ): Promise<AdapterResult<PublishResult>> {
     await delay(800, 1500)
 
     if (this.controls.shouldFailShopify()) {
@@ -78,7 +80,7 @@ export class MockShopifyAdapter implements MarketplaceAdapter {
       )
     }
 
-    if (scooter.salePriceCents === null || scooter.salePriceCents <= 0) {
+    if (payload.priceCents <= 0) {
       return fail(
         "VALIDATION",
         "Kein Verkaufspreis gesetzt — Shopify lehnt Produkte ohne Preis ab.",
@@ -86,17 +88,15 @@ export class MockShopifyAdapter implements MarketplaceAdapter {
       )
     }
 
-    const existing = getListing(scooter, "SHOPIFY")
     const productId =
-      existing?.externalIds.productId ??
-      shopifyNumericId(scooter.id, "product")
+      payload.externalIds.productId ?? shopifyNumericId(payload.sku, "product")
     const variantId =
-      existing?.externalIds.variantId ?? shopifyNumericId(scooter.id, "variant")
+      payload.externalIds.variantId ?? shopifyNumericId(payload.sku, "variant")
     const inventoryItemId =
-      existing?.externalIds.inventoryItemId ??
-      shopifyNumericId(scooter.id, "inventory")
+      payload.externalIds.inventoryItemId ??
+      shopifyNumericId(payload.sku, "inventory")
 
-    const handle = `${modelLabel(scooter)} ${scooter.scooterNumber}`
+    const handle = `${payload.title} ${payload.sku}`
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
@@ -108,7 +108,9 @@ export class MockShopifyAdapter implements MarketplaceAdapter {
     })
   }
 
-  async updateProduct(scooter: Scooter): Promise<AdapterResult<PublishResult>> {
+  async updateProduct(
+    payload: ListingPayload
+  ): Promise<AdapterResult<PublishResult>> {
     // Update und Publish unterscheiden sich in der Demo nur in der Dauer;
     // die Idempotenz-Logik ist identisch.
     await delay(500, 1000)
@@ -119,10 +121,10 @@ export class MockShopifyAdapter implements MarketplaceAdapter {
         true
       )
     }
-    return this.publishProduct(scooter)
+    return this.publishProduct(payload)
   }
 
-  async setUnavailable(scooter: Scooter): Promise<AdapterResult<void>> {
+  async setUnavailable(payload: ListingPayload): Promise<AdapterResult<void>> {
     await delay(400, 900)
     if (this.controls.shouldFailShopify()) {
       return fail(
@@ -131,59 +133,69 @@ export class MockShopifyAdapter implements MarketplaceAdapter {
         true
       )
     }
-    const listing = getListing(scooter, "SHOPIFY")
-    if (!listing?.externalIds.inventoryItemId) {
+    if (!payload.externalIds.inventoryItemId) {
       return fail(
         "CONFLICT",
-        "Kein Shopify-Listing vorhanden, das deaktiviert werden könnte.",
+        "Kein Shopify-Angebot vorhanden, das deaktiviert werden könnte.",
         false
       )
     }
     return ok(undefined)
   }
 
-  async deleteListing(scooter: Scooter): Promise<AdapterResult<void>> {
+  async deleteListing(payload: ListingPayload): Promise<AdapterResult<void>> {
     await delay(400, 900)
     if (this.controls.shouldFailShopify()) {
       return fail("NETWORK", "Löschen fehlgeschlagen. Simulierter Fehler.", true)
     }
-    void scooter
+    void payload
     return ok(undefined)
   }
 
   async getListingStatus(
-    scooter: Scooter
+    payload: ListingPayload
   ): Promise<AdapterResult<{ available: boolean; inventory: number }>> {
     await delay(200, 500)
-    const listing = getListing(scooter, "SHOPIFY")
     return ok({
-      available: listing?.status === "VEROEFFENTLICHT",
-      inventory: listing?.inventory ?? 0,
+      available: Boolean(payload.externalIds.productId),
+      inventory: payload.quantity,
     })
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* Kleinanzeigen                                                       */
+/* Kanäle ohne Schnittstelle: eBay und Kleinanzeigen                   */
 /* ------------------------------------------------------------------ */
 
 /**
- * Für Kleinanzeigen ist keine nutzbare Schnittstelle bestätigt. Dieser Adapter
- * täuscht deshalb bewusst KEINE Automatisierung vor: Er pflegt ausschließlich
- * den internen Status, den ein Mitarbeiter von Hand setzt. Sobald die
- * Discovery ein Ergebnis hat, wird hier eine echte Implementierung eingesetzt —
- * bis dahin ist `supportsApi = false` die ehrliche Aussage.
+ * Ein Kanal, der von Hand bedient wird.
+ *
+ * Weder für eBay noch für Kleinanzeigen liegt ein bestätigter Zugang vor.
+ * Dieser Adapter täuscht deshalb bewusst KEINE Automatisierung vor: Er führt
+ * ausschließlich den internen Status. Das vollständig vorbereitete Inserat
+ * liefert `proposalAsText` — eingestellt wird es im Kanal selbst.
+ *
+ * Für eBay hieße eine echte Anbindung: Entwicklerkonto, OAuth, Business
+ * Policies und ein Sandbox-Account. Sobald die vorliegen, wird hier eine
+ * echte Implementierung eingesetzt; `supportsApi = false` ist bis dahin die
+ * ehrliche Aussage — und der Grund, warum eBay-Verkäufe nachgetragen werden
+ * müssen.
  */
-export class ManualKleinanzeigenAdapter implements MarketplaceAdapter {
-  readonly channel = "KLEINANZEIGEN" as const
-  readonly displayName = "Kleinanzeigen"
+export class ManualChannelAdapter implements MarketplaceAdapter {
   readonly supportsApi = false
   readonly isMock = true
 
-  async publishProduct(scooter: Scooter): Promise<AdapterResult<PublishResult>> {
-    // Kein Netzwerkaufruf — der Mitarbeiter hat die Anzeige selbst erstellt
-    // und markiert sie hier lediglich als vorhanden.
-    void scooter
+  constructor(
+    readonly channel: "EBAY" | "KLEINANZEIGEN",
+    readonly displayName: string
+  ) {}
+
+  async publishProduct(
+    payload: ListingPayload
+  ): Promise<AdapterResult<PublishResult>> {
+    // Kein Netzwerkaufruf — das Inserat wird im Kanal selbst eingestellt und
+    // hier lediglich als vorhanden vermerkt.
+    void payload
     return ok({
       externalIds: {},
       externalUrl: null,
@@ -191,8 +203,10 @@ export class ManualKleinanzeigenAdapter implements MarketplaceAdapter {
     })
   }
 
-  async updateProduct(scooter: Scooter): Promise<AdapterResult<PublishResult>> {
-    return this.publishProduct(scooter)
+  async updateProduct(
+    payload: ListingPayload
+  ): Promise<AdapterResult<PublishResult>> {
+    return this.publishProduct(payload)
   }
 
   async setUnavailable(): Promise<AdapterResult<void>> {
@@ -204,13 +218,9 @@ export class ManualKleinanzeigenAdapter implements MarketplaceAdapter {
   }
 
   async getListingStatus(
-    scooter: Scooter
+    payload: ListingPayload
   ): Promise<AdapterResult<{ available: boolean; inventory: number }>> {
-    const listing = getListing(scooter, "KLEINANZEIGEN")
-    return ok({
-      available: listing?.status === "VEROEFFENTLICHT",
-      inventory: listing?.inventory ?? 0,
-    })
+    return ok({ available: false, inventory: payload.quantity })
   }
 }
 
@@ -275,11 +285,24 @@ export class MockGoogleSheetsAdapter implements SheetsAdapter {
  * Code fest verdrahtet — das echte Avides-Format ist unbekannt. Der Wizard
  * arbeitet ausschließlich über das Mapping, das der Nutzer bestätigt.
  */
-export class MockAvidesImportSource implements ImportSource {
-  readonly displayName = "Avides (Demo-Datei)"
+/**
+ * Beispiel-Lieferliste für den Demo-Modus.
+ *
+ * Zwei Dateien, weil der Import zwei sehr verschiedene Fälle bedienen muss:
+ * eine Geräteliste mit Seriennummern und eine Teileliste mit Mengen. Beide
+ * enthalten bewusst dieselben Stolperstellen wie echte Lieferantendateien —
+ * Dubletten gegen den Bestand, Dubletten innerhalb der Datei und Zeilen ohne
+ * belastbaren Schlüssel.
+ */
+export class DemoImportSource implements ImportSource {
+  readonly displayName = "Beispiel-Lieferliste"
   readonly isMock = true
 
   async loadDemoTable(): Promise<ParsedTable> {
+    return this.loadUnitsTable()
+  }
+
+  async loadUnitsTable(): Promise<ParsedTable> {
     await delay(400, 800)
 
     const headers = [
@@ -297,9 +320,9 @@ export class MockAvidesImportSource implements ImportSource {
       "Bemerkung",
     ]
 
-    // Die Seriennummern sind bewusst neu — bis auf drei Zeilen, die typische
-    // Praxisfälle abbilden: eine Dublette gegen den Bestand, eine Dublette
-    // innerhalb der Datei und eine Zeile ohne Seriennummer.
+    const row = (...values: string[]): Record<string, string> =>
+      Object.fromEntries(headers.map((header, i) => [header, values[i] ?? ""]))
+
     const rows: Record<string, string>[] = [
       row("AV-91020", "DEMO-XM4U-51204", "Xiaomi", "Electric Scooter 4 Ultra", "", "Schwarz", "289,00", "649,00", "412", "B", "02.08.2026", "Retoure, Originalkarton"),
       row("AV-91021", "DEMO-NB-F2P-51330", "Segway-Ninebot", "KickScooter F2 Pro", "", "Grau", "231,50", "529,00", "780", "B", "02.08.2026", ""),
@@ -308,18 +331,48 @@ export class MockAvidesImportSource implements ImportSource {
       row("AV-91024", "DEMO-TRB-KALK-51677", "Trittbrett", "Kalle", "", "Petrol", "348,00", "799,00", "95", "A", "02.08.2026", ""),
       row("AV-91025", "DEMO-XM-PRO2-51703", "Xiaomi", "Mi Scooter Pro 2", "", "Schwarz", "168,00", "379,00", "2130", "C", "02.08.2026", "Akku schwächer"),
       row("AV-91026", "DEMO-NB-MAXG2-51844", "Segway-Ninebot", "KickScooter MAX G2", "", "Schwarz", "388,00", "849,00", "560", "B", "02.08.2026", ""),
-      // Bereits im Bestand (SK-2026-0041) — darf nicht überschrieben werden.
-      row("AV-91027", "DEMO-XM4U-77301", "Xiaomi", "Electric Scooter 4 Ultra", "", "Schwarz", "289,00", "649,00", "412", "B", "02.08.2026", "Bereits letzte Woche geliefert"),
+      // Bereits im Bestand — darf nicht überschrieben werden.
+      row("AV-91027", "DEMO-XM-PRO2-77413", "Xiaomi", "Mi Scooter Pro 2", "", "Schwarz", "180,00", "339,00", "1240", "B", "02.08.2026", "Bereits im Bestand"),
       // Dublette innerhalb dieser Datei (identisch zu AV-91020).
       row("AV-91028", "DEMO-XM4U-51204", "Xiaomi", "Electric Scooter 4 Ultra", "", "Schwarz", "289,00", "649,00", "412", "B", "02.08.2026", "Doppelte Zeile im Lieferschein"),
       // Ohne Seriennummer — muss als Fehler auffallen, nicht still durchlaufen.
       row("AV-91029", "", "NIU", "KQi2 Pro", "", "Grau", "198,00", "449,00", "870", "C", "02.08.2026", "Seriennummer fehlt auf dem Etikett"),
     ]
 
-    function row(...values: string[]): Record<string, string> {
-      return Object.fromEntries(headers.map((header, i) => [header, values[i] ?? ""]))
-    }
+    return { fileName: "lieferung_geraete_demo.csv", headers, rows }
+  }
 
-    return { fileName: "avides_lieferung_demo.csv", headers, rows }
+  async loadPartsTable(): Promise<ParsedTable> {
+    await delay(400, 800)
+
+    const headers = [
+      "Teilenummer",
+      "Bezeichnung",
+      "Hersteller",
+      "Passend für",
+      "Menge",
+      "EK je Stück",
+      "VK",
+      "Zustand",
+      "Lagerplatz",
+      "Bemerkung",
+    ]
+
+    const row = (...values: string[]): Record<string, string> =>
+      Object.fromEntries(headers.map((header, i) => [header, values[i] ?? ""]))
+
+    const rows: Record<string, string>[] = [
+      row("CST-C1488-85", "Reifen 8,5 Zoll Tubeless", "CST", "Xiaomi M365, Pro, Pro 2", "24", "7,90", "18,90", "Neu", "B-02", "Sammelbestellung"),
+      row("CST-C1488-10", "Reifen 10 Zoll mit Schlauch", "CST", "Ninebot MAX G30", "12", "11,50", "22,90", "Neu", "B-02", ""),
+      row("ZM-BP-140", "Bremsbeläge Scheibenbremse (Paar)", "Zoom", "Universal 140 mm", "50", "3,60", "9,90", "Neu", "B-02", ""),
+      row("XM-DSP-PRO2", "Display / Bedieneinheit Pro 2", "Xiaomi", "Xiaomi M365, Pro, Pro 2", "4", "19,00", "34,90", "Gebraucht", "B-01", "Aus Ausschlachtung"),
+      row("NB-CTL-G30", "Controller MAX G30", "Segway", "Ninebot MAX G30", "3", "34,00", "69,00", "Gut", "B-01", ""),
+      row("XM-FEN-PRO2", "Schutzblech hinten mit Rücklicht", "Xiaomi", "Xiaomi M365, Pro, Pro 2", "6", "4,20", "14,90", "Gut", "B-02", ""),
+      row("SK-CHG-42-2", "Ladegerät 42V 2A", "Skope", "Universal 36V-Systeme", "10", "12,90", "24,90", "Neu", "B-01", ""),
+      // Ohne Teilenummer und ohne Bezeichnung — nicht zuordenbar.
+      row("", "", "", "", "5", "1,00", "", "Neu", "", "Restposten ohne Angaben"),
+    ]
+
+    return { fileName: "lieferung_ersatzteile_demo.csv", headers, rows }
   }
 }

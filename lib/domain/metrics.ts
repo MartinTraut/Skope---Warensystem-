@@ -7,29 +7,44 @@
  * kein steuerlicher Gewinn. Differenzbesteuerung ist bewusst nicht abgebildet.
  */
 
-import { isInStock, isListed } from "./status"
-import type { CustomerSource, Sale, SaleChannel, Scooter } from "./types"
+import { isListed } from "./status"
+import { daysInStock, isUnitInStock } from "./stock"
+import type {
+  Article,
+  ArticleUnit,
+  CustomerSource,
+  Sale,
+  SaleChannel,
+  StockLevel,
+} from "./types"
 
 /* ------------------------------------------------------------------ */
-/* Kosten je Scooter                                                   */
+/* Kosten je Einzelstück                                               */
 /* ------------------------------------------------------------------ */
 
-export function repairCostsCents(scooter: Scooter): number {
-  return scooter.repairs.reduce((sum, repair) => sum + repair.partCostCents, 0)
+export function repairCostsCents(unit: ArticleUnit): number {
+  return unit.repairs.reduce((sum, repair) => sum + repair.partCostCents, 0)
 }
 
-export function totalCostCents(scooter: Scooter): number {
+export function totalCostCents(unit: ArticleUnit): number {
   return (
-    scooter.purchasePriceCents +
-    repairCostsCents(scooter) +
-    scooter.additionalCostsCents
+    unit.purchasePriceCents + repairCostsCents(unit) + unit.additionalCostsCents
   )
 }
 
 /** Erwartete Marge auf Basis des kalkulierten Verkaufspreises. */
-export function expectedMarginCents(scooter: Scooter): number | null {
-  if (scooter.salePriceCents === null) return null
-  return scooter.salePriceCents - totalCostCents(scooter)
+export function expectedMarginCents(unit: ArticleUnit): number | null {
+  if (unit.salePriceCents === null) return null
+  return unit.salePriceCents - totalCostCents(unit)
+}
+
+/** Erwartete Marge eines Mengenartikels je Stück. */
+export function expectedArticleMarginCents(
+  article: Article,
+  stock: StockLevel
+): number | null {
+  if (article.salePriceCents === null) return null
+  return article.salePriceCents - stock.averageCostCents
 }
 
 export function marginPercent(
@@ -40,8 +55,8 @@ export function marginPercent(
   return Math.round((marginCents / salePriceCents) * 1000) / 10
 }
 
-export function totalLaborMinutes(scooter: Scooter): number {
-  return scooter.repairs.reduce((sum, repair) => sum + repair.laborMinutes, 0)
+export function totalLaborMinutes(unit: ArticleUnit): number {
+  return unit.repairs.reduce((sum, repair) => sum + repair.laborMinutes, 0)
 }
 
 /* ------------------------------------------------------------------ */
@@ -66,17 +81,31 @@ export function saleCostCents(sale: Sale): number {
 /* ------------------------------------------------------------------ */
 
 export interface DashboardMetrics {
-  inStock: number
+  /** Anzahl geführter Artikel (Sorten), ohne archivierte. */
+  articleCount: number
+  /** Summe aller Stückzahlen über alle Artikel. */
+  pieceCount: number
+  /** Einstandswert des gesamten Lagers. */
+  stockValueCents: number
+
+  /** Einzelstücke im Bestand, nach Prozessstufe. */
+  unitsInStock: number
   readyForSale: number
   inRefurbishment: number
   inInspection: number
   inbound: number
   listed: number
   reserved: number
+  openInspections: number
+
+  /** Mengenartikel unter dem Meldebestand. */
+  belowReorderLevel: number
+  /** Vorschläge, die auf Freigabe warten. */
+  openProposals: number
+
   soldThisMonth: number
   revenueThisMonthCents: number
   averageMarginCents: number
-  openInspections: number
   failedSyncs: number
 }
 
@@ -88,13 +117,35 @@ function isSameMonth(iso: string, reference: Date): boolean {
   )
 }
 
+export interface MetricsInput {
+  articles: Article[]
+  units: ArticleUnit[]
+  levels: Map<string, StockLevel>
+  sales: Sale[]
+  openProposals: number
+}
+
 export function computeDashboardMetrics(
-  scooters: Scooter[],
-  sales: Sale[],
+  input: MetricsInput,
   now: Date = new Date()
 ): DashboardMetrics {
-  const stock = scooters.filter(isInStock)
+  const { articles, units, levels, sales } = input
+
+  const active = articles.filter((article) => article.archivedAt === null)
+  const unitsInStock = units.filter(isUnitInStock)
   const salesThisMonth = sales.filter((sale) => isSameMonth(sale.soldAt, now))
+
+  let pieceCount = 0
+  let stockValueCents = 0
+  let belowReorderLevel = 0
+
+  for (const article of active) {
+    const level = levels.get(article.id)
+    if (!level) continue
+    pieceCount += level.quantity
+    stockValueCents += level.valueCents
+    if (level.belowReorderLevel) belowReorderLevel += 1
+  }
 
   const revenueThisMonthCents = salesThisMonth.reduce(
     (sum, sale) => sum + sale.salePriceCents,
@@ -105,33 +156,50 @@ export function computeDashboardMetrics(
     0
   )
 
-  const failedListings = scooters.filter((scooter) =>
-    scooter.listings.some((listing) => listing.status === "FEHLER")
-  ).length
+  // Fehlgeschlagene Übertragungen werden über alle Ebenen gezählt: ein Fehler
+  // am Mengenartikel wiegt nicht weniger als einer an einem Gerät.
+  const failedListings =
+    active.filter((article) =>
+      article.listings.some((listing) => listing.status === "FEHLER")
+    ).length +
+    unitsInStock.filter((unit) =>
+      unit.listings.some((listing) => listing.status === "FEHLER")
+    ).length
   const failedSheets = sales.filter(
     (sale) => sale.sheetsSyncStatus === "FEHLER"
   ).length
 
+  const byStatus = (status: ArticleUnit["workflowStatus"]) =>
+    unitsInStock.filter((unit) => unit.workflowStatus === status).length
+
   return {
-    inStock: stock.length,
-    readyForSale: stock.filter((s) => s.workflowStatus === "VERKAUFSBEREIT")
+    articleCount: active.length,
+    pieceCount,
+    stockValueCents,
+
+    unitsInStock: unitsInStock.length,
+    readyForSale: byStatus("VERKAUFSBEREIT"),
+    inRefurbishment: byStatus("AUFBEREITUNG"),
+    inInspection: byStatus("IN_PRUEFUNG"),
+    inbound: byStatus("EINGEGANGEN"),
+    listed:
+      unitsInStock.filter(isListed).length +
+      active.filter(isListed).length,
+    reserved: unitsInStock.filter((unit) => unit.saleStatus === "RESERVIERT")
       .length,
-    inRefurbishment: stock.filter((s) => s.workflowStatus === "AUFBEREITUNG")
-      .length,
-    inInspection: stock.filter((s) => s.workflowStatus === "IN_PRUEFUNG").length,
-    inbound: stock.filter((s) => s.workflowStatus === "EINGEGANGEN").length,
-    listed: stock.filter(isListed).length,
-    reserved: stock.filter((s) => s.saleStatus === "RESERVIERT").length,
+    openInspections: unitsInStock.filter(
+      (unit) => unit.inspection.completedAt === null
+    ).length,
+
+    belowReorderLevel,
+    openProposals: input.openProposals,
+
     soldThisMonth: salesThisMonth.length,
     revenueThisMonthCents,
     averageMarginCents:
       salesThisMonth.length === 0
         ? 0
         : Math.round(marginSum / salesThisMonth.length),
-    openInspections: stock.filter(
-      (s) =>
-        s.inspection.completedAt === null && s.workflowStatus !== "ARCHIVIERT"
-    ).length,
     failedSyncs: failedListings + failedSheets,
   }
 }
@@ -144,37 +212,28 @@ export interface PipelineStage {
 }
 
 export function computePipeline(
-  scooters: Scooter[],
+  units: ArticleUnit[],
   sales: Sale[]
 ): PipelineStage[] {
-  const stock = scooters.filter(isInStock)
+  const stock = units.filter(isUnitInStock)
+  const byStatus = (status: ArticleUnit["workflowStatus"]) =>
+    stock.filter((unit) => unit.workflowStatus === status).length
+
   return [
-    {
-      key: "EINGEGANGEN",
-      label: "Eingegangen",
-      count: stock.filter((s) => s.workflowStatus === "EINGEGANGEN").length,
-    },
-    {
-      key: "IN_PRUEFUNG",
-      label: "Prüfung",
-      count: stock.filter((s) => s.workflowStatus === "IN_PRUEFUNG").length,
-    },
-    {
-      key: "AUFBEREITUNG",
-      label: "Aufbereitung",
-      count: stock.filter((s) => s.workflowStatus === "AUFBEREITUNG").length,
-    },
+    { key: "EINGEGANGEN", label: "Eingegangen", count: byStatus("EINGEGANGEN") },
+    { key: "IN_PRUEFUNG", label: "Prüfung", count: byStatus("IN_PRUEFUNG") },
+    { key: "AUFBEREITUNG", label: "Aufbereitung", count: byStatus("AUFBEREITUNG") },
     {
       key: "VERKAUFSBEREIT",
       label: "Verkaufsbereit",
-      count: stock.filter((s) => s.workflowStatus === "VERKAUFSBEREIT").length,
+      count: byStatus("VERKAUFSBEREIT"),
     },
+    { key: "INSERIERT", label: "Inseriert", count: stock.filter(isListed).length },
     {
-      key: "INSERIERT",
-      label: "Inseriert",
-      count: stock.filter(isListed).length,
+      key: "VERKAUFT",
+      label: "Verkauft",
+      count: sales.filter((sale) => sale.unitId !== null).length,
     },
-    { key: "VERKAUFT", label: "Verkauft", count: sales.length },
   ]
 }
 
@@ -384,25 +443,134 @@ export interface CapitalStage {
  * zehn Geräte im Wareneingang sind etwas anderes als zehn kurz vor dem
  * Verkauf.
  */
-export function computeCapitalByStage(scooters: Scooter[]): CapitalStage[] {
-  const stages: { key: Scooter["workflowStatus"]; label: string }[] = [
+export function computeCapitalByStage(units: ArticleUnit[]): CapitalStage[] {
+  const stages: { key: ArticleUnit["workflowStatus"]; label: string }[] = [
     { key: "EINGEGANGEN", label: "Eingegangen" },
     { key: "IN_PRUEFUNG", label: "Prüfung" },
     { key: "AUFBEREITUNG", label: "Aufbereitung" },
     { key: "VERKAUFSBEREIT", label: "Verkaufsbereit" },
   ]
 
-  const stock = scooters.filter(isInStock)
+  const stock = units.filter(isUnitInStock)
 
   return stages.map(({ key, label }) => {
-    const group = stock.filter((scooter) => scooter.workflowStatus === key)
+    const group = stock.filter((unit) => unit.workflowStatus === key)
     return {
       key,
       label,
       count: group.length,
-      tiedCents: group.reduce((sum, scooter) => sum + totalCostCents(scooter), 0),
+      tiedCents: group.reduce((sum, unit) => sum + totalCostCents(unit), 0),
     }
   })
+}
+
+/* ------------------------------------------------------------------ */
+/* Lagerauswertung                                                     */
+/* ------------------------------------------------------------------ */
+
+export interface CategoryStock {
+  categoryId: string
+  label: string
+  articleCount: number
+  pieceCount: number
+  valueCents: number
+}
+
+/**
+ * Bestand je Bereich — die Antwort auf "was habe ich eigentlich alles".
+ *
+ * Zugeordnet wird auf die Kategorie, in der der Artikel tatsächlich liegt;
+ * eine Rollup-Summe auf die Elternebene würde Beträge doppelt zählen.
+ */
+export function computeCategoryStock(
+  articles: Article[],
+  levels: Map<string, StockLevel>,
+  labelFor: (categoryId: string) => string
+): CategoryStock[] {
+  const totals = new Map<string, CategoryStock>()
+
+  for (const article of articles) {
+    if (article.archivedAt !== null) continue
+    const level = levels.get(article.id)
+    if (!level) continue
+
+    const entry = totals.get(article.categoryId) ?? {
+      categoryId: article.categoryId,
+      label: labelFor(article.categoryId),
+      articleCount: 0,
+      pieceCount: 0,
+      valueCents: 0,
+    }
+    entry.articleCount += 1
+    entry.pieceCount += level.quantity
+    entry.valueCents += level.valueCents
+    totals.set(article.categoryId, entry)
+  }
+
+  return [...totals.values()].sort((a, b) => b.valueCents - a.valueCents)
+}
+
+export interface SlowMover {
+  articleId: string
+  unitId: string | null
+  label: string
+  number: string
+  days: number
+  tiedCents: number
+}
+
+/**
+ * Was liegt am längsten?
+ *
+ * Liegezeit ist bei einem Ersatzteillager die wichtigste Kennzahl neben dem
+ * Bestand: Sie zeigt, welches Kapital sich nicht bewegt — und damit, wo eine
+ * Preissenkung oder ein Bündelverkauf lohnt.
+ */
+export function computeSlowMovers(
+  articles: Article[],
+  units: ArticleUnit[],
+  levels: Map<string, StockLevel>,
+  labelFor: (article: Article) => string,
+  options: { minDays?: number; limit?: number } = {}
+): SlowMover[] {
+  const minDays = options.minDays ?? 60
+  const limit = options.limit ?? 8
+  const byId = new Map(articles.map((article) => [article.id, article]))
+  const result: SlowMover[] = []
+
+  for (const unit of units) {
+    if (!isUnitInStock(unit)) continue
+    const article = byId.get(unit.articleId)
+    if (!article) continue
+    const days = daysInStock(unit.arrivalDate)
+    if (days < minDays) continue
+    result.push({
+      articleId: article.id,
+      unitId: unit.id,
+      label: labelFor(article),
+      number: unit.unitNumber,
+      days,
+      tiedCents: totalCostCents(unit),
+    })
+  }
+
+  for (const article of articles) {
+    if (article.stockMode !== "MENGE" || article.archivedAt !== null) continue
+    const level = levels.get(article.id)
+    if (!level || level.quantity === 0) continue
+    const days = daysInStock(article.createdAt)
+    if (days < minDays) continue
+    result.push({
+      articleId: article.id,
+      unitId: null,
+      label: labelFor(article),
+      number: article.sku,
+      days,
+      tiedCents: level.valueCents,
+    })
+  }
+
+  return result.sort((a, b) => b.tiedCents - a.tiedCents).slice(0, limit)
 }
 
 /* ------------------------------------------------------------------ */

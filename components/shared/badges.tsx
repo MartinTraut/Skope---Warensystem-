@@ -1,0 +1,227 @@
+import Link from "next/link"
+
+import { StatusPill } from "@/components/skope/status-pill"
+import {
+  CHANNEL_META,
+  CONDITION_META,
+  LISTING_STATUS_META,
+  SALE_STATUS_META,
+  SYNC_STATUS_META,
+  WORKFLOW_META,
+} from "@/lib/domain/status"
+import type {
+  Condition,
+  Listing,
+  ListingStatus,
+  SaleStatus,
+  StockMode,
+  SyncStatus,
+  WorkflowStatus,
+} from "@/lib/domain/types"
+import { CHANNELS } from "@/lib/domain/types"
+import { STOCK_MODE_META } from "@/lib/domain/status"
+import { cn } from "@/lib/utils"
+
+/** Statusanzeigen, die in Tabellen, Karten und Detailseiten identisch aussehen. */
+
+export function WorkflowBadge({
+  status,
+  size = "md",
+}: {
+  status: WorkflowStatus
+  size?: "sm" | "md"
+}) {
+  const meta = WORKFLOW_META[status]
+  return (
+    <StatusPill
+      tone={meta.tone}
+      size={size}
+      pulse={status === "IN_PRUEFUNG" || status === "AUFBEREITUNG"}
+    >
+      {meta.label}
+    </StatusPill>
+  )
+}
+
+export function SaleBadge({
+  status,
+  size = "md",
+}: {
+  status: SaleStatus
+  size?: "sm" | "md"
+}) {
+  const meta = SALE_STATUS_META[status]
+  return (
+    <StatusPill tone={meta.tone} size={size}>
+      {meta.label}
+    </StatusPill>
+  )
+}
+
+export function ListingBadge({
+  status,
+  size = "md",
+}: {
+  status: ListingStatus
+  size?: "sm" | "md"
+}) {
+  const meta = LISTING_STATUS_META[status]
+  return (
+    <StatusPill
+      tone={meta.tone}
+      size={size}
+      pulse={status === "SYNC_AUSSTEHEND"}
+    >
+      {meta.label}
+    </StatusPill>
+  )
+}
+
+export function ConditionBadge({ condition }: { condition: Condition }) {
+  const meta = CONDITION_META[condition]
+  return (
+    <StatusPill tone={meta.tone} size="sm" dot={false}>
+      {meta.label}
+    </StatusPill>
+  )
+}
+
+export function SyncBadge({
+  status,
+  size = "sm",
+}: {
+  status: SyncStatus
+  size?: "sm" | "md"
+}) {
+  const meta = SYNC_STATUS_META[status]
+  return (
+    <StatusPill tone={meta.tone} size={size} pulse={status === "WARTET"}>
+      {meta.label}
+    </StatusPill>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Kanalanzeige                                                        */
+/* ------------------------------------------------------------------ */
+
+const CHANNEL_DOT: Record<ListingStatus, string> = {
+  VEROEFFENTLICHT: "bg-state-live border-state-live/40",
+  SYNC_AUSSTEHEND: "bg-skope-accent border-skope-accent/40 animate-pulse-soft",
+  FEHLER: "bg-state-error border-state-error/40",
+  DEAKTIVIERT: "bg-muted-foreground/40 border-white/8",
+  NICHT_VEROEFFENTLICHT: "bg-transparent border-white/12",
+}
+
+/**
+ * Kompakte Kanalanzeige für Tabellenzeilen: je Kanal ein Kürzel mit Punkt.
+ * Auf einen Blick erkennbar, ohne die Zeile mit Text zu füllen.
+ */
+export function ChannelIndicators({
+  listings,
+  className,
+}: {
+  listings: Listing[]
+  className?: string
+}) {
+  return (
+    <div className={cn("flex items-center gap-1.5", className)}>
+      {CHANNELS.map((channel) => {
+        const listing = listings.find((entry) => entry.channel === channel)
+        const status = listing?.status ?? "NICHT_VEROEFFENTLICHT"
+        return (
+          <span
+            key={channel}
+            title={`${CHANNEL_META[channel].label}: ${LISTING_STATUS_META[status].label}`}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-medium tracking-wide",
+              status === "NICHT_VEROEFFENTLICHT"
+                ? "border-white/6 text-muted-foreground/50"
+                : "border-white/8 text-foreground/75"
+            )}
+          >
+            <span
+              className={cn("size-1.5 rounded-full border", CHANNEL_DOT[status])}
+              aria-hidden
+            />
+            {CHANNEL_META[channel].short}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Identität                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Nummer plus Bezeichnung — die Standardkennung in allen Listen.
+ *
+ * Bewusst eine Komponente für Artikel und Einzelstücke: Beide werden in
+ * Listen gleich gelesen, und zwei Varianten liefen unweigerlich auseinander.
+ */
+export function ItemIdentity({
+  number,
+  label,
+  href,
+  className,
+}: {
+  number: string
+  label: string
+  href?: string
+  className?: string
+}) {
+  const content = (
+    <>
+      <span className="block font-mono type-body-sm font-medium text-foreground group-hover:text-skope-accent">
+        {number}
+      </span>
+      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+        {label}
+      </span>
+    </>
+  )
+
+  if (!href) {
+    return <div className={cn("min-w-0", className)}>{content}</div>
+  }
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group block min-w-0 rounded-md transition-colors focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
+        className
+      )}
+    >
+      {content}
+    </Link>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Bestandsart                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Kennzeichnet, ob ein Artikel einzeln oder als Menge geführt wird.
+ *
+ * Steht in jeder Bestandsliste, weil davon abhängt, was die Zahl daneben
+ * bedeutet: „3" sind entweder drei geprüfte Geräte oder drei Schrauben.
+ */
+export function StockModeBadge({
+  mode,
+  size = "sm",
+}: {
+  mode: StockMode
+  size?: "sm" | "md"
+}) {
+  const meta = STOCK_MODE_META[mode]
+  return (
+    <StatusPill tone={meta.tone} size={size} dot={false} title={meta.hint}>
+      {meta.label}
+    </StatusPill>
+  )
+}

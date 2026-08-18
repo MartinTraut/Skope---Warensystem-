@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DemoTag } from "@/components/skope/primitives"
 import { FOCUS_RING } from "@/components/skope/focus"
-import { NewScooterDialog } from "@/components/scooters/new-scooter-dialog"
+import { NewUnitDialog } from "@/components/units/new-unit-dialog"
 
 /**
  * Rahmen der Anwendung: feste Sidebar links, Topbar oben, Inhalt in der Mitte.
@@ -179,7 +179,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <NewScooterDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <NewUnitDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   )
 }
@@ -208,6 +208,8 @@ function SidebarContent({
     inbound: metrics.inbound,
     inspection: metrics.inInspection,
     refurbishment: metrics.inRefurbishment,
+    proposals: metrics.openProposals,
+    reorder: metrics.belowReorderLevel,
     failedSyncs: metrics.failedSyncs,
   }
 
@@ -256,7 +258,7 @@ function SidebarContent({
               className="h-10 w-full justify-center gap-2 font-medium"
             >
               <Plus className="size-4" />
-              Scooter hinzufügen
+              Gerät erfassen
             </Button>
           </div>
         )}
@@ -265,7 +267,7 @@ function SidebarContent({
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
               {!collapsed && (
-                <p className="mb-2 px-3 text-[10px] font-medium tracking-[0.14em] text-muted-foreground/70 uppercase">
+                <p className="mb-2 px-3 text-[11px] font-medium tracking-[0.14em] text-muted-foreground/70 uppercase">
                   {group.label}
                 </p>
               )}
@@ -378,8 +380,8 @@ function NavLink({
       {!collapsed && badge !== undefined && badge > 0 && (
         <span
           className={cn(
-            "grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-medium tabular-nums",
-            item.badge === "failedSyncs"
+            "grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[11px] font-medium tabular-nums",
+            item.badge === "failedSyncs" || item.badge === "reorder"
               ? "bg-state-error/15 text-state-error"
               : "bg-surface-track text-muted-foreground"
           )}
@@ -391,7 +393,7 @@ function NavLink({
         <span
           className={cn(
             "absolute top-1.5 right-2.5 size-1.5 rounded-full",
-            item.badge === "failedSyncs" ? "bg-state-error" : "bg-skope-accent"
+            item.badge === "failedSyncs" || item.badge === "reorder" ? "bg-state-error" : "bg-skope-accent"
           )}
           aria-hidden
         />
@@ -453,15 +455,15 @@ function Topbar({
       <div className="flex shrink-0 items-center gap-2">
         <DemoTag className="hidden sm:inline-flex">Demo-Modus</DemoTag>
         <Link
-          href="/scooters"
-          aria-label="Scooter suchen"
+          href="/inventory"
+          aria-label="Bestand durchsuchen"
           className="grid size-10 place-items-center rounded-lg border border-skope-line text-muted-foreground transition-colors hover:border-skope-line-strong hover:text-foreground sm:hidden"
         >
           <Search className="size-4" />
         </Link>
         <Button onClick={onCreate} className="h-10 gap-2 px-3.5">
           <Plus className="size-4" />
-          <span className="hidden sm:inline">Scooter</span>
+          <span className="hidden sm:inline">Gerät</span>
         </Button>
       </div>
     </header>

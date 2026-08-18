@@ -9,10 +9,12 @@ import {
   ArrowRight,
   Check,
   FileUp,
+  FolderTree,
   Sparkles,
 } from "lucide-react"
 
 import { InlineSelect } from "@/components/skope/form"
+import { CategorySelect } from "@/components/inventory/category-select"
 import {
   DemoTag,
   EmptyState,
@@ -25,18 +27,26 @@ import { StatusPill } from "@/components/skope/status-pill"
 import { ConfirmDialog } from "@/components/skope/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { repositories } from "@/lib/data/demo-repository"
+import type { ImportRow } from "@/lib/data/repository"
 import { runAction } from "@/lib/data/run-action"
-import { useSavedMapping, useScooters } from "@/hooks/use-cockpit"
+import {
+  useArticles,
+  useCategorySettings,
+  useSavedMapping,
+  useUnits,
+} from "@/hooks/use-cockpit"
 import { parseFile, suggestMapping } from "@/lib/integrations/csv"
 import type { ParsedTable } from "@/lib/integrations/types"
 import { formatCents, parseCents } from "@/lib/domain/money"
-import { findBySerial, normalizeSerial } from "@/lib/domain/scooter-factory"
-import type { NewScooterInput } from "@/lib/domain/scooter-factory"
+import { normalizeReference } from "@/lib/domain/numbering"
+import { STOCK_MODE_META } from "@/lib/domain/status"
 import {
   IMPORT_TARGET_FIELDS,
+  type Article,
+  type ArticleUnit,
   type Condition,
-  type ImportTargetField,
-  type Scooter,
+  type ResolvedCategorySettings,
+  type StockMode,
 } from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
 
@@ -44,28 +54,68 @@ import { cn } from "@/lib/utils"
 /* Zielfelder                                                          */
 /* ------------------------------------------------------------------ */
 
-const FIELD_LABELS: Record<ImportTargetField, string> = {
-  serialNumber: "Seriennummer",
+const FIELD_LABELS: Record<string, string> = {
+  name: "Bezeichnung",
   manufacturer: "Hersteller",
-  model: "Modell",
+  mpn: "Teilenummer (MPN)",
+  ean: "EAN",
+  serialNumber: "Seriennummer",
   variant: "Variante",
   color: "Farbe",
+  quantity: "Menge",
   purchasePriceCents: "Einkaufspreis",
   salePriceCents: "Verkaufspreis",
   mileageKm: "Kilometerstand",
   condition: "Zustand",
   purchaseDate: "Einkaufsdatum",
+  location: "Lagerplatz",
   notes: "Bemerkung",
 }
 
-/** Ohne diese Felder ergibt ein Datensatz keinen Sinn. */
-const REQUIRED_FIELDS: ImportTargetField[] = [
-  "serialNumber",
-  "manufacturer",
-  "model",
-]
+/**
+ * Welche Felder je Bestandsart überhaupt sinnvoll sind.
+ *
+ * Eine Kiste Bremsbeläge hat keine Laufleistung, ein Scooter keine
+ * Stückzahl. Felder anzubieten, die für den gewählten Bereich bedeutungslos
+ * sind, erzeugt nur Zuordnungen, die später niemand mehr erklären kann.
+ */
+const FIELDS_BY_MODE: Record<StockMode, string[]> = {
+  SERIALISIERT: [
+    "name",
+    "manufacturer",
+    "serialNumber",
+    "variant",
+    "color",
+    "mileageKm",
+    "purchasePriceCents",
+    "salePriceCents",
+    "condition",
+    "purchaseDate",
+    "location",
+    "notes",
+  ],
+  MENGE: [
+    "name",
+    "manufacturer",
+    "mpn",
+    "ean",
+    "quantity",
+    "purchasePriceCents",
+    "salePriceCents",
+    "condition",
+    "purchaseDate",
+    "location",
+    "notes",
+  ],
+}
+
+const REQUIRED_BY_MODE: Record<StockMode, string[]> = {
+  SERIALISIERT: ["name", "serialNumber"],
+  MENGE: ["name"],
+}
 
 const STEPS = [
+  { key: "category", label: "Bereich" },
   { key: "file", label: "Datei" },
   { key: "mapping", label: "Zuordnung" },
   { key: "preview", label: "Vorschau" },
@@ -80,23 +130,24 @@ type StepKey = (typeof STEPS)[number]["key"]
 /* ------------------------------------------------------------------ */
 
 /**
- * Import-Assistent für Lieferantenlisten.
+ * Import-Assistent für Lieferanten- und Einkaufslisten.
  *
- * Bewusst formatoffen: Es sind keine Spaltennamen fest verdrahtet, weil das
- * echte Avides-Format noch nicht vorliegt. Der Nutzer bestätigt die Zuordnung,
- * und diese Zuordnung wird für den nächsten Import gespeichert.
+ * Bewusst formatoffen: Es sind keine Spaltennamen fest verdrahtet. Der Nutzer
+ * wählt zuerst den Bereich — daraus ergeben sich Nummernkreis, Bestandsart und
+ * die eigenen Merkmalsfelder, auf die sich Spalten ebenfalls zuordnen lassen.
+ * Die bestätigte Zuordnung wird je Bereich gespeichert, damit der nächste
+ * Import derselben Liste ohne Nacharbeit läuft.
  */
 export function ImportWizard() {
   const router = useRouter()
-  const scooters = useScooters()
-  const savedMapping = useSavedMapping()
+  const articles = useArticles()
+  const units = useUnits()
 
-  const [step, setStep] = useState<StepKey>("file")
+  const [step, setStep] = useState<StepKey>("category")
+  const [categoryId, setCategoryId] = useState("")
   const [table, setTable] = useState<ParsedTable | null>(null)
-  const [source, setSource] = useState<"AVIDES_DEMO" | "DATEI">("DATEI")
-  const [mapping, setMapping] = useState<Record<ImportTargetField, string>>(
-    emptyMapping()
-  )
+  const [source, setSource] = useState<"DEMO" | "DATEI">("DATEI")
+  const [mapping, setMapping] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -108,17 +159,43 @@ export function ImportWizard() {
 
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const settings = useCategorySettings(categoryId || null)
+  const savedMapping = useSavedMapping(categoryId || null)
+
+  /** Feste Felder der Bestandsart plus die Merkmale des Bereichs. */
+  const targets = useMemo(() => {
+    const base = FIELDS_BY_MODE[settings.stockMode].filter((field) =>
+      (IMPORT_TARGET_FIELDS as readonly string[]).includes(field)
+    )
+    return [
+      ...base,
+      ...settings.attributes.map((attribute) => `attr:${attribute.key}`),
+    ]
+  }, [settings])
+
+  const labels = useMemo(() => {
+    const map: Record<string, string> = { ...FIELD_LABELS }
+    for (const attribute of settings.attributes) {
+      map[`attr:${attribute.key}`] = attribute.unit
+        ? `${attribute.label} (${attribute.unit})`
+        : attribute.label
+    }
+    return map
+  }, [settings])
+
+  const requiredFields = REQUIRED_BY_MODE[settings.stockMode]
+
   /* ----- Datei laden ----- */
 
-  function applyTable(next: ParsedTable, nextSource: "AVIDES_DEMO" | "DATEI") {
+  function applyTable(next: ParsedTable, nextSource: "DEMO" | "DATEI") {
     setTable(next)
     setSource(nextSource)
 
     // Gespeichertes Mapping wiederverwenden, sofern die Spalten passen.
-    const restored = emptyMapping()
+    const restored: Record<string, string> = {}
     let restoredCount = 0
     if (savedMapping) {
-      for (const entry of savedMapping) {
+      for (const entry of savedMapping.columns) {
         if (entry.source && next.headers.includes(entry.source)) {
           restored[entry.target] = entry.source
           restoredCount += 1
@@ -127,14 +204,12 @@ export function ImportWizard() {
     }
 
     setMapping(
-      restoredCount >= 3
-        ? restored
-        : suggestMapping(next.headers, IMPORT_TARGET_FIELDS)
+      restoredCount >= 3 ? restored : suggestMapping(next.headers, targets, labels)
     )
     setStep("mapping")
 
     if (restoredCount >= 3) {
-      toast.info("Gespeichertes Spalten-Mapping übernommen", {
+      toast.info("Gespeicherte Zuordnung übernommen", {
         description: "Bitte trotzdem kurz prüfen.",
       })
     }
@@ -146,7 +221,7 @@ export function ImportWizard() {
       const demo = await runAction(repositories.imports.loadDemoTable(), {
         failure: "Beispieldatei konnte nicht geladen werden",
       })
-      if (demo) applyTable(demo, "AVIDES_DEMO")
+      if (demo) applyTable(demo, "DEMO")
     } finally {
       setLoading(false)
     }
@@ -159,7 +234,6 @@ export function ImportWizard() {
       applyTable(parsed, "DATEI")
       toast.success(`${parsed.rows.length} Zeilen gelesen`)
     } catch (error) {
-      // Lesefehler werden angezeigt, nicht verschluckt.
       toast.error("Datei konnte nicht gelesen werden", {
         description:
           error instanceof Error ? error.message : "Unbekannter Fehler.",
@@ -173,23 +247,27 @@ export function ImportWizard() {
   /* ----- Auswertung ----- */
 
   const rows = useMemo(
-    () => (table ? buildRows(table, mapping, scooters) : []),
-    [table, mapping, scooters]
+    () =>
+      table
+        ? buildRows(table, mapping, settings, { articles, units })
+        : [],
+    [table, mapping, settings, articles, units]
   )
 
   const valid = rows.filter((row) => row.issues.length === 0)
   const problematic = rows.filter((row) => row.issues.length > 0)
-  const missingRequired = REQUIRED_FIELDS.filter((field) => !mapping[field])
+  const missingRequired = requiredFields.filter((field) => !mapping[field])
 
   /* ----- Import ----- */
 
   async function runImport() {
-    if (!table) return
+    if (!table || !categoryId) return
 
     setImporting(true)
     const response = await repositories.imports.importRows({
       fileName: table.fileName,
       source,
+      categoryId,
       rows: valid.map((row) => row.input),
     })
     setImporting(false)
@@ -200,8 +278,10 @@ export function ImportWizard() {
     }
 
     void repositories.imports.saveMapping(
-      IMPORT_TARGET_FIELDS.map((target) => ({ target, source: mapping[target] }))
+      categoryId,
+      targets.map((target) => ({ target, source: mapping[target] ?? "" }))
     )
+
     setResult({
       imported: response.data.rowsImported,
       skipped: rows.length - response.data.rowsImported,
@@ -209,7 +289,7 @@ export function ImportWizard() {
     })
     setStep("done")
 
-    toast.success(`${response.data.rowsImported} Scooter importiert`, {
+    toast.success(`${response.data.rowsImported} Zeilen importiert`, {
       description:
         response.data.rowsSkipped > 0
           ? `${response.data.rowsSkipped} Zeilen wurden übersprungen.`
@@ -219,16 +299,18 @@ export function ImportWizard() {
 
   function restart() {
     setTable(null)
-    setMapping(emptyMapping())
+    setMapping({})
     setResult(null)
     setStep("file")
   }
+
+  const serialized = settings.stockMode === "SERIALISIERT"
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Import"
-        description="Lieferantenlisten einlesen, Spalten zuordnen und als Scooter übernehmen."
+        description="Einkaufs- und Lieferantenlisten einlesen, Spalten zuordnen und als Bestand übernehmen — Geräte einzeln, Teile als Menge."
         actions={<DemoTag>Demo-Daten verfügbar</DemoTag>}
       />
 
@@ -238,7 +320,7 @@ export function ImportWizard() {
         open={discardOpen}
         onOpenChange={setDiscardOpen}
         title="Andere Datei wählen?"
-        description="Die geladene Datei und die bestätigte Spaltenzuordnung werden verworfen. Bereits importierte Scooter bleiben erhalten."
+        description="Die geladene Datei und die bestätigte Spaltenzuordnung werden verworfen. Bereits importierter Bestand bleibt erhalten."
         confirmLabel="Verwerfen"
         onConfirm={() => {
           restart()
@@ -246,18 +328,32 @@ export function ImportWizard() {
         }}
       />
 
+      {step === "category" && (
+        <CategoryStep
+          categoryId={categoryId}
+          settings={settings}
+          onChange={setCategoryId}
+          onNext={() => setStep("file")}
+        />
+      )}
+
       {step === "file" && (
         <FileStep
           loading={loading}
           inputRef={inputRef}
+          settings={settings}
           onPickFile={loadFile}
           onLoadDemo={loadDemo}
+          onBack={() => setStep("category")}
         />
       )}
 
       {step === "mapping" && table && (
         <MappingStep
           table={table}
+          targets={targets}
+          labels={labels}
+          requiredFields={requiredFields}
           mapping={mapping}
           onChange={setMapping}
           missingRequired={missingRequired}
@@ -270,6 +366,7 @@ export function ImportWizard() {
         <PreviewStep
           table={table}
           rows={rows}
+          serialized={serialized}
           onBack={() => setStep("mapping")}
           onNext={() => setStep("validate")}
         />
@@ -279,6 +376,7 @@ export function ImportWizard() {
         <ValidationStep
           valid={valid}
           problematic={problematic}
+          settings={settings}
           importing={importing}
           onBack={() => setStep("preview")}
           onImport={runImport}
@@ -288,8 +386,11 @@ export function ImportWizard() {
       {step === "done" && result && (
         <DoneStep
           result={result}
+          serialized={serialized}
           onRestart={restart}
-          onOpenStock={() => router.push("/inbound")}
+          onOpenTarget={() =>
+            router.push(serialized ? "/inbound" : "/inventory")
+          }
         />
       )}
     </div>
@@ -326,7 +427,7 @@ function StepIndicator({ current }: { current: StepKey }) {
             >
               <span
                 className={cn(
-                  "grid size-4 shrink-0 place-items-center rounded-full text-[10px] font-medium",
+                  "grid size-4 shrink-0 place-items-center rounded-full text-[11px] font-medium",
                   active
                     ? "bg-skope-accent text-[#14100a]"
                     : done
@@ -351,16 +452,91 @@ function StepIndicator({ current }: { current: StepKey }) {
   )
 }
 
+function CategoryStep({
+  categoryId,
+  settings,
+  onChange,
+  onNext,
+}: {
+  categoryId: string
+  settings: ResolvedCategorySettings
+  onChange: (id: string) => void
+  onNext: () => void
+}) {
+  return (
+    <Panel>
+      <PanelHeader
+        title="Wohin wird importiert?"
+        description="Der Bereich bestimmt Nummernkreis, Bestandsart und die Merkmalsfelder, auf die sich Spalten zuordnen lassen."
+        icon={<FolderTree className="size-4" />}
+      />
+      <PanelBody className="space-y-4">
+        <CategorySelect
+          label="Bereich"
+          value={categoryId}
+          onChange={onChange}
+          required
+        />
+
+        {categoryId && (
+          <div className="rounded-lg border border-skope-line bg-surface-sunken p-3.5">
+            <p className="text-sm text-foreground">{settings.pathLabel}</p>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <li>
+                Bestandsart:{" "}
+                <span className="text-foreground">
+                  {STOCK_MODE_META[settings.stockMode].label}
+                </span>{" "}
+                — {STOCK_MODE_META[settings.stockMode].hint}
+              </li>
+              <li>
+                Nummernkreis:{" "}
+                <span className="font-mono text-foreground">
+                  {settings.numberPrefix}
+                </span>
+              </li>
+              <li>
+                Merkmalsfelder:{" "}
+                <span className="text-foreground">
+                  {settings.attributes.length === 0
+                    ? "keine"
+                    : settings.attributes
+                        .map((attribute) => attribute.label)
+                        .join(", ")}
+                </span>
+              </li>
+            </ul>
+          </div>
+        )}
+      </PanelBody>
+      <div className="flex justify-end border-t border-skope-line px-4 py-4 sm:px-5">
+        <Button
+          className="h-10 gap-2 px-4"
+          disabled={!categoryId}
+          onClick={onNext}
+        >
+          Weiter zur Datei
+          <ArrowRight className="size-4" />
+        </Button>
+      </div>
+    </Panel>
+  )
+}
+
 function FileStep({
   loading,
   inputRef,
+  settings,
   onPickFile,
   onLoadDemo,
+  onBack,
 }: {
   loading: boolean
   inputRef: React.RefObject<HTMLInputElement | null>
+  settings: ResolvedCategorySettings
   onPickFile: (file: File) => void
   onLoadDemo: () => void
+  onBack: () => void
 }) {
   const [dragOver, setDragOver] = useState(false)
 
@@ -369,7 +545,7 @@ function FileStep({
       <Panel>
         <PanelHeader
           title="Datei auswählen"
-          description="CSV oder TSV mit einer Kopfzeile. Die Datei wird ausschließlich im Browser verarbeitet."
+          description={`CSV oder TSV mit einer Kopfzeile. Ziel: ${settings.pathLabel || "kein Bereich"}. Die Datei wird ausschließlich im Browser verarbeitet.`}
         />
         <PanelBody>
           <input
@@ -418,7 +594,9 @@ function FileStep({
               )}
             />
             <p className="mt-4 text-sm font-medium text-foreground">
-              {loading ? "Datei wird gelesen …" : "Datei hierher ziehen oder auswählen"}
+              {loading
+                ? "Datei wird gelesen …"
+                : "Datei hierher ziehen oder auswählen"}
             </p>
             <p className="mt-1.5 text-xs text-muted-foreground">
               Trennzeichen (Semikolon, Komma, Tab) wird automatisch erkannt.
@@ -427,10 +605,15 @@ function FileStep({
 
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
             <strong className="text-foreground/80">XLSX</strong> wird im
-            Prototyp noch nicht gelesen — bitte vorerst als CSV exportieren. Die
-            Unterstützung kommt zusammen mit der echten Avides-Anbindung.
+            Prototyp noch nicht gelesen — bitte vorerst als CSV exportieren.
           </p>
         </PanelBody>
+        <div className="flex justify-start border-t border-skope-line px-4 py-4 sm:px-5">
+          <Button variant="outline" className="h-10 gap-2 px-4" onClick={onBack}>
+            <ArrowLeft className="size-4" />
+            Bereich ändern
+          </Button>
+        </div>
       </Panel>
 
       <Panel accent>
@@ -444,9 +627,8 @@ function FileStep({
         />
         <PanelBody>
           <p className="text-sm leading-relaxed text-foreground/85">
-            Eine erfundene Avides-Lieferliste mit zehn Zeilen — inklusive einer
-            Dublette und einer Zeile ohne Seriennummer, damit die
-            Fehlerbehandlung sichtbar wird.
+            Eine erfundene Lieferliste — inklusive einer Dublette und einer
+            Zeile ohne Bezeichnung, damit die Fehlerbehandlung sichtbar wird.
           </p>
           <Button
             className="mt-4 h-10 w-full px-4"
@@ -457,8 +639,7 @@ function FileStep({
           </Button>
           <p className="mt-3 type-caption leading-relaxed text-muted-foreground">
             Die Spaltennamen der Demo-Datei sind ein Beispiel und nirgends im
-            Code fest verdrahtet. Das echte Avides-Format wird beim ersten
-            realen Export festgelegt.
+            Code fest verdrahtet.
           </p>
         </PanelBody>
       </Panel>
@@ -469,30 +650,30 @@ function FileStep({
 /**
  * Quellspalten, die mehr als ein Zielfeld füllen.
  *
- * Die Automatik vergibt jede Spalte nur einmal, von Hand ist das nicht
- * verhindert. Unbemerkt wäre es teuer: „EK netto" auf Einkauf *und* Verkauf
- * ergibt für jedes Gerät eine Marge von null — und niemand sucht den Fehler
- * später im Import.
- *
- * Die Prüfung steht außerhalb des Schritts, weil sie an zwei Stellen gebraucht
- * wird: für die Warnung im Schritt und für die Sperre am Weiter-Knopf.
+ * Unbemerkt wäre das teuer: „EK netto" auf Einkauf *und* Verkauf ergibt für
+ * jede Zeile eine Marge von null — und niemand sucht den Fehler später im
+ * Import.
  */
 function findDuplicateColumns(
-  mapping: Record<ImportTargetField, string>
-): [string, ImportTargetField[]][] {
-  const byColumn = IMPORT_TARGET_FIELDS.filter(
-    (field) => mapping[field]
-  ).reduce<Record<string, ImportTargetField[]>>((acc, field) => {
-    const column = mapping[field]
-    acc[column] = [...(acc[column] ?? []), field]
-    return acc
-  }, {})
+  targets: string[],
+  mapping: Record<string, string>
+): [string, string[]][] {
+  const byColumn = targets
+    .filter((target) => mapping[target])
+    .reduce<Record<string, string[]>>((acc, target) => {
+      const column = mapping[target]
+      acc[column] = [...(acc[column] ?? []), target]
+      return acc
+    }, {})
 
   return Object.entries(byColumn).filter(([, fields]) => fields.length > 1)
 }
 
 function MappingStep({
   table,
+  targets,
+  labels,
+  requiredFields,
   mapping,
   onChange,
   missingRequired,
@@ -500,14 +681,15 @@ function MappingStep({
   onNext,
 }: {
   table: ParsedTable
-  mapping: Record<ImportTargetField, string>
-  onChange: (mapping: Record<ImportTargetField, string>) => void
-  missingRequired: ImportTargetField[]
+  targets: string[]
+  labels: Record<string, string>
+  requiredFields: string[]
+  mapping: Record<string, string>
+  onChange: (mapping: Record<string, string>) => void
+  missingRequired: string[]
   onBack: () => void
   onNext: () => void
 }) {
-  // Fehlt ein Pflichtfeld, wird die Bearbeitung erzwungen — dann hilft die
-  // Zusammenfassung nicht weiter, dann muss ausgewählt werden.
   const [manualEdit, setManualEdit] = useState(false)
 
   const options = [
@@ -515,32 +697,22 @@ function MappingStep({
     ...table.headers.map((header) => ({ value: header, label: header })),
   ]
 
-  const sampleOf = (field: ImportTargetField) =>
-    mapping[field]
-      ? (table.rows.find((row) => row[mapping[field]])?.[mapping[field]] ?? "")
+  const sampleOf = (target: string) =>
+    mapping[target]
+      ? (table.rows.find((row) => row[mapping[target]])?.[mapping[target]] ?? "")
       : ""
 
-  const mapped = IMPORT_TARGET_FIELDS.filter((field) => mapping[field])
-  /*
-    Nicht erkannt heißt nicht automatisch fehlerhaft: Eine Liste ohne
-    Farbspalte hat eben keine. Pflichtfelder sind der Sonderfall — die stehen
-    getrennt und in Warnfarbe.
-  */
-  const unresolved = IMPORT_TARGET_FIELDS.filter(
-    (field) => !mapping[field] && !REQUIRED_FIELDS.includes(field)
+  const mapped = targets.filter((target) => mapping[target])
+  const unresolved = targets.filter(
+    (target) => !mapping[target] && !requiredFields.includes(target)
   )
+  const duplicates = findDuplicateColumns(targets, mapping)
 
-  const duplicates = findDuplicateColumns(mapping)
-
-  const usedColumns = new Set(mapped.map((field) => mapping[field]))
+  const usedColumns = new Set(mapped.map((target) => mapping[target]))
   const ignoredColumns = table.headers.filter(
     (header) => !usedColumns.has(header)
   )
 
-  /*
-    Fehlt ein Pflichtfeld oder ist eine Spalte doppelt vergeben, führt an der
-    Bearbeitung kein Weg vorbei — die Zusammenfassung hilft dann nicht weiter.
-  */
   const blocked = missingRequired.length > 0 || duplicates.length > 0
   const editing = manualEdit || blocked
 
@@ -568,26 +740,18 @@ function MappingStep({
             <p className="text-xs leading-relaxed text-foreground/85">
               Pflichtfelder ohne Zuordnung:{" "}
               <strong>
-                {missingRequired.map((field) => FIELD_LABELS[field]).join(", ")}
+                {missingRequired.map((field) => labels[field] ?? field).join(", ")}
               </strong>
               . Ohne sie kann kein Datensatz angelegt werden — bitte unten die
               passende Spalte auswählen.
             </p>
           </div>
         ) : (
-          /*
-            Der Regelfall ist eine Bestätigung, kein Formular.
-
-            Elf Auswahlfelder sehen aus wie elf Entscheidungen, obwohl das
-            System sie längst getroffen hat. Erkannt wird deshalb nur
-            berichtet; geändert wird auf Wunsch.
-          */
           <div className="flex gap-2.5 rounded-lg border border-state-ready/28 bg-state-ready/8 p-3.5">
             <Check className="mt-0.5 size-4 shrink-0 text-state-ready" />
             <p className="text-xs leading-relaxed text-foreground/85">
               <strong>
-                {mapped.length} von {IMPORT_TARGET_FIELDS.length} Feldern
-                automatisch erkannt
+                {mapped.length} von {targets.length} Feldern automatisch erkannt
               </strong>{" "}
               — anhand der Spaltennamen der Datei. Prüfe die Beispielwerte; sie
               stammen aus der ersten gefüllten Zeile.
@@ -606,8 +770,8 @@ function MappingStep({
                 {duplicates.map(([column, fields]) => (
                   <li key={column}>
                     <strong>{column}</strong> füllt{" "}
-                    {fields.map((field) => FIELD_LABELS[field]).join(" und ")} —
-                    beide Felder bekommen denselben Wert.
+                    {fields.map((field) => labels[field] ?? field).join(" und ")}{" "}
+                    — beide Felder bekommen denselben Wert.
                   </li>
                 ))}
               </ul>
@@ -620,23 +784,28 @@ function MappingStep({
 
         {editing ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            {IMPORT_TARGET_FIELDS.map((field) => {
-              const required = REQUIRED_FIELDS.includes(field)
-              const sample = sampleOf(field)
-              const missing = required && !mapping[field]
+            {targets.map((target) => {
+              const required = requiredFields.includes(target)
+              const sample = sampleOf(target)
+              const missing = required && !mapping[target]
 
               return (
-                <div key={field} className="min-w-0">
+                <div key={target} className="min-w-0">
                   <label className="mb-1.5 flex items-center gap-1 type-body-sm font-medium text-foreground/90">
-                    {FIELD_LABELS[field]}
+                    {labels[target] ?? target}
                     {required && <span className="text-skope-accent">*</span>}
+                    {target.startsWith("attr:") && (
+                      <span className="ml-1 type-caption text-muted-foreground">
+                        Merkmal
+                      </span>
+                    )}
                   </label>
                   <InlineSelect
-                    aria-label={`Quellspalte für ${FIELD_LABELS[field]}`}
+                    aria-label={`Quellspalte für ${labels[target] ?? target}`}
                     className={cn("h-11", missing && "border-state-warn/50")}
-                    value={mapping[field]}
+                    value={mapping[target] ?? ""}
                     onChange={(event) =>
-                      onChange({ ...mapping, [field]: event.target.value })
+                      onChange({ ...mapping, [target]: event.target.value })
                     }
                     options={options}
                   />
@@ -650,27 +819,22 @@ function MappingStep({
         ) : (
           <>
             <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {mapped.map((field) => (
+              {mapped.map((target) => (
                 <li
-                  key={field}
+                  key={target}
                   className="min-w-0 rounded-lg border border-skope-line bg-surface-sunken px-3.5 py-2.5"
                 >
                   <p className="flex items-center gap-1.5 type-label">
-                    {FIELD_LABELS[field]}
-                    {REQUIRED_FIELDS.includes(field) && (
+                    {labels[target] ?? target}
+                    {requiredFields.includes(target) && (
                       <span className="text-skope-accent">*</span>
                     )}
                   </p>
-                  {/*
-                    Die Quellspalte ist die eigentliche Aussage, der
-                    Beispielwert die Kontrolle. Deshalb steht die Spalte groß
-                    und der Wert klein darunter — nicht umgekehrt.
-                  */}
                   <p className="mt-1 truncate text-sm font-medium text-foreground">
-                    {mapping[field]}
+                    {mapping[target]}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {sampleOf(field) || "keine Beispieldaten"}
+                    {sampleOf(target) || "keine Beispieldaten"}
                   </p>
                 </li>
               ))}
@@ -679,8 +843,8 @@ function MappingStep({
             {unresolved.length > 0 && (
               <p className="type-caption leading-relaxed text-muted-foreground">
                 Ohne Zuordnung:{" "}
-                {unresolved.map((field) => FIELD_LABELS[field]).join(", ")}. Die
-                Felder bleiben leer — über {"„"}Zuordnung ändern{"“"} lassen
+                {unresolved.map((field) => labels[field] ?? field).join(", ")}.
+                Die Felder bleiben leer — über {"„"}Zuordnung ändern{"“"} lassen
                 sie sich nachtragen.
               </p>
             )}
@@ -702,7 +866,7 @@ function MappingStep({
         backLabel="Andere Datei"
         onNext={onNext}
         nextLabel="Vorschau"
-        nextDisabled={missingRequired.length > 0 || duplicates.length > 0}
+        nextDisabled={blocked}
       />
     </Panel>
   )
@@ -711,11 +875,13 @@ function MappingStep({
 function PreviewStep({
   table,
   rows,
+  serialized,
   onBack,
   onNext,
 }: {
   table: ParsedTable
   rows: BuiltRow[]
+  serialized: boolean
   onBack: () => void
   onNext: () => void
 }) {
@@ -731,10 +897,10 @@ function PreviewStep({
           <thead>
             <tr className="border-b border-skope-line">
               <Th className="pl-5">#</Th>
-              <Th>Seriennummer</Th>
+              <Th>Bezeichnung</Th>
               <Th>Hersteller</Th>
-              <Th>Modell</Th>
-              <Th>Farbe</Th>
+              <Th>{serialized ? "Seriennummer" : "Teilenummer"}</Th>
+              <Th align="right">{serialized ? "km" : "Menge"}</Th>
               <Th align="right">EK</Th>
               <Th align="right">VK</Th>
               <Th className="pr-5">Status</Th>
@@ -752,17 +918,17 @@ function PreviewStep({
                 <td className="py-2.5 pr-3 pl-5 text-xs text-muted-foreground tabular-nums">
                   {row.index}
                 </td>
-                <td className="px-3 py-2.5 font-mono text-xs text-foreground">
-                  {row.input.serialNumber || "—"}
-                </td>
                 <td className="px-3 py-2.5 text-foreground/85">
-                  {row.input.manufacturer || "—"}
-                </td>
-                <td className="px-3 py-2.5 text-foreground/85">
-                  {row.input.model || "—"}
+                  {row.input.name || "—"}
                 </td>
                 <td className="px-3 py-2.5 text-muted-foreground">
-                  {row.input.color || "—"}
+                  {row.input.manufacturer || "—"}
+                </td>
+                <td className="px-3 py-2.5 font-mono text-xs text-foreground">
+                  {(serialized ? row.input.serialNumber : row.input.mpn) || "—"}
+                </td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                  {serialized ? (row.input.mileageKm ?? 0) : (row.input.quantity ?? 1)}
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                   {formatCents(row.input.purchasePriceCents ?? 0)}
@@ -812,24 +978,25 @@ function PreviewStep({
 function ValidationStep({
   valid,
   problematic,
+  settings,
   importing,
   onBack,
   onImport,
 }: {
   valid: BuiltRow[]
   problematic: BuiltRow[]
+  settings: ResolvedCategorySettings
   importing: boolean
   onBack: () => void
   onImport: () => void
 }) {
+  const serialized = settings.stockMode === "SERIALISIERT"
+  const pieces = valid.reduce((sum, row) => sum + (row.input.quantity ?? 1), 0)
+
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryTile
-          label="Werden importiert"
-          value={valid.length}
-          tone="ready"
-        />
+        <SummaryTile label="Werden importiert" value={valid.length} tone="ready" />
         <SummaryTile
           label="Werden übersprungen"
           value={problematic.length}
@@ -882,11 +1049,28 @@ function ValidationStep({
       <Panel>
         <PanelBody>
           <p className="text-sm leading-relaxed text-foreground/85">
-            Beim Import werden{" "}
-            <strong className="text-foreground">{valid.length} neue Scooter</strong>{" "}
-            im Wareneingang angelegt. Jeder bekommt automatisch eine
-            fortlaufende Scooter-Nummer und ein leeres Prüfprotokoll.
-            Bestehende Datensätze werden dabei <strong>nie</strong> überschrieben.
+            Importiert wird nach{" "}
+            <strong className="text-foreground">{settings.pathLabel}</strong>.{" "}
+            {serialized ? (
+              <>
+                Es entstehen{" "}
+                <strong className="text-foreground">
+                  {valid.length} Geräte
+                </strong>{" "}
+                im Wareneingang, jedes mit eigener Nummer und leerem
+                Prüfprotokoll.
+              </>
+            ) : (
+              <>
+                Es werden{" "}
+                <strong className="text-foreground">{pieces} Stück</strong> auf{" "}
+                {valid.length} Artikel gebucht. Ist ein Artikel über Teilenummer
+                oder Bezeichnung schon bekannt, entsteht ein Zugang auf den
+                vorhandenen Satz statt eines zweiten.
+              </>
+            )}{" "}
+            Bestehende Datensätze werden dabei <strong>nie</strong>{" "}
+            überschrieben.
           </p>
         </PanelBody>
         <WizardFooter
@@ -894,9 +1078,7 @@ function ValidationStep({
           backLabel="Zurück zur Vorschau"
           onNext={onImport}
           nextLabel={
-            importing
-              ? "Import läuft …"
-              : `${valid.length} Scooter importieren`
+            importing ? "Import läuft …" : `${valid.length} Zeilen importieren`
           }
           nextDisabled={importing || valid.length === 0}
         />
@@ -907,34 +1089,32 @@ function ValidationStep({
 
 function DoneStep({
   result,
+  serialized,
   onRestart,
-  onOpenStock,
+  onOpenTarget,
 }: {
   result: { imported: number; skipped: number; total: number }
+  serialized: boolean
   onRestart: () => void
-  onOpenStock: () => void
+  onOpenTarget: () => void
 }) {
   return (
     <Panel accent>
       <PanelBody>
         <EmptyState
           icon={<Check className="size-5 text-state-ready" />}
-          title={`${result.imported} Scooter importiert`}
+          title={`${result.imported} Zeilen importiert`}
           description={
             result.skipped > 0
-              ? `${result.skipped} von ${result.total} Zeilen wurden übersprungen. Die Gründe stehen im Import-Protokoll unter Wareneingang.`
-              : `Alle ${result.total} Zeilen wurden übernommen. Die Geräte liegen jetzt im Wareneingang und warten auf die Prüfung.`
+              ? `${result.skipped} von ${result.total} Zeilen wurden übersprungen. Die Gründe stehen im Import-Protokoll.`
+              : `Alle ${result.total} Zeilen wurden übernommen.`
           }
           action={
             <div className="flex flex-wrap justify-center gap-2">
-              <Button className="h-10 px-4" onClick={onOpenStock}>
-                Zum Wareneingang
+              <Button className="h-10 px-4" onClick={onOpenTarget}>
+                {serialized ? "Zum Wareneingang" : "Zum Bestand"}
               </Button>
-              <Button
-                variant="outline"
-                className="h-10 px-4"
-                onClick={onRestart}
-              >
+              <Button variant="outline" className="h-10 px-4" onClick={onRestart}>
                 Weitere Datei importieren
               </Button>
             </div>
@@ -968,11 +1148,7 @@ function WizardFooter({
         <ArrowLeft className="size-4" />
         {backLabel}
       </Button>
-      <Button
-        className="h-10 gap-2 px-4"
-        onClick={onNext}
-        disabled={nextDisabled}
-      >
+      <Button className="h-10 gap-2 px-4" onClick={onNext} disabled={nextDisabled}>
         {nextLabel}
         <ArrowRight className="size-4" />
       </Button>
@@ -1021,7 +1197,7 @@ function Th({
     <th
       scope="col"
       className={cn(
-        "px-3 py-2.5 text-[10px] font-medium tracking-[0.1em] text-muted-foreground/80 uppercase",
+        "px-3 py-2.5 text-[11px] font-medium tracking-[0.1em] text-muted-foreground/80 uppercase",
         align === "right" && "text-right",
         className
       )}
@@ -1037,59 +1213,80 @@ function Th({
 
 interface BuiltRow {
   index: number
-  input: NewScooterInput
+  input: ImportRow
   issues: { reason: string; severity: "warning" | "error" }[]
 }
 
 /**
- * Übersetzt die Rohzeilen anhand des Mappings in SKOPE-Datensätze und prüft
- * sie. Dubletten werden sowohl gegen den Bestand als auch innerhalb der Datei
- * erkannt — eine Lieferliste kann dieselbe Seriennummer doppelt enthalten.
+ * Übersetzt die Rohzeilen anhand der Zuordnung in SKOPE-Datensätze und prüft
+ * sie.
+ *
+ * Was als Dublette gilt, hängt an der Bestandsart: Bei Einzelstücken ist es
+ * die Seriennummer — ein zweites Gerät mit derselben Nummer gibt es nicht. Bei
+ * Mengen ist eine bekannte Teilenummer *keine* Dublette, sondern der Normalfall:
+ * Der Zugang wird auf den vorhandenen Artikel gebucht.
  */
 function buildRows(
   table: ParsedTable,
-  mapping: Record<ImportTargetField, string>,
-  existing: Scooter[]
+  mapping: Record<string, string>,
+  settings: ResolvedCategorySettings,
+  existing: { articles: Article[]; units: ArticleUnit[] }
 ): BuiltRow[] {
+  const serialized = settings.stockMode === "SERIALISIERT"
   const seenInFile = new Set<string>()
 
+  const unitBySerial = new Map(
+    existing.units
+      .filter((unit) => unit.serialNumber)
+      .map((unit) => [normalizeReference(unit.serialNumber), unit])
+  )
+  const articleByMpn = new Map(
+    existing.articles
+      .filter((article) => article.mpn)
+      .map((article) => [normalizeReference(article.mpn), article])
+  )
+
   return table.rows.map((raw, index) => {
-    const get = (field: ImportTargetField) =>
-      mapping[field] ? (raw[mapping[field]] ?? "").trim() : ""
+    const get = (target: string) =>
+      mapping[target] ? (raw[mapping[target]] ?? "").trim() : ""
 
-    const serial = get("serialNumber")
     const issues: BuiltRow["issues"] = []
+    const name = get("name")
+    const serial = get("serialNumber")
+    const mpn = get("mpn")
 
-    if (!serial) {
+    if (!name) {
       issues.push({
-        reason: "Keine Seriennummer — Zeile kann nicht importiert werden.",
+        reason: "Keine Bezeichnung — Zeile kann nicht importiert werden.",
         severity: "error",
       })
-    } else {
-      const normalized = normalizeSerial(serial)
-      if (seenInFile.has(normalized)) {
+    }
+
+    if (serialized) {
+      if (!serial) {
         issues.push({
-          reason: "Seriennummer kommt in dieser Datei mehrfach vor.",
-          severity: "warning",
+          reason: "Keine Seriennummer — Einzelstücke brauchen eine.",
+          severity: "error",
         })
       } else {
-        seenInFile.add(normalized)
-      }
+        const normalized = normalizeReference(serial)
+        if (seenInFile.has(normalized)) {
+          issues.push({
+            reason: "Seriennummer kommt in dieser Datei mehrfach vor.",
+            severity: "warning",
+          })
+        } else {
+          seenInFile.add(normalized)
+        }
 
-      const duplicate = findBySerial(existing, serial)
-      if (duplicate) {
-        issues.push({
-          reason: `Bereits im Bestand als ${duplicate.scooterNumber}.`,
-          severity: "warning",
-        })
+        const duplicate = unitBySerial.get(normalized)
+        if (duplicate) {
+          issues.push({
+            reason: `Bereits im Bestand als ${duplicate.unitNumber}.`,
+            severity: "warning",
+          })
+        }
       }
-    }
-
-    if (!get("manufacturer")) {
-      issues.push({ reason: "Hersteller fehlt.", severity: "error" })
-    }
-    if (!get("model")) {
-      issues.push({ reason: "Modell fehlt.", severity: "error" })
     }
 
     // Ein unlesbarer Preis darf nicht still zu 0 € werden — die Marge wäre
@@ -1112,6 +1309,15 @@ function buildRows(
       })
     }
 
+    const rawQuantity = get("quantity")
+    const quantity = rawQuantity === "" ? 1 : Number.parseInt(rawQuantity.replace(/\D/g, ""), 10)
+    if (!serialized && rawQuantity !== "" && !Number.isFinite(quantity)) {
+      issues.push({
+        reason: `Menge „${rawQuantity}" ist nicht lesbar — Zeile wird übersprungen.`,
+        severity: "error",
+      })
+    }
+
     const rawMileage = get("mileageKm")
     const mileageKm = Number.parseInt(rawMileage.replace(/\D/g, ""), 10)
     if (rawMileage !== "" && Number.isNaN(mileageKm)) {
@@ -1129,21 +1335,41 @@ function buildRows(
       })
     }
 
+    if (!serialized && mpn && articleByMpn.has(normalizeReference(mpn))) {
+      // Bewusst kein Fehler: Der Zugang landet auf dem vorhandenen Artikel.
+      // Sichtbar bleibt es trotzdem, damit niemand einen zweiten Satz erwartet.
+      issues.push({
+        reason: `Teilenummer bekannt — wird als Zugang auf ${articleByMpn.get(normalizeReference(mpn))!.sku} gebucht.`,
+        severity: "warning",
+      })
+    }
+
+    const attributes: Record<string, string> = {}
+    for (const attribute of settings.attributes) {
+      const value = get(`attr:${attribute.key}`)
+      if (value) attributes[attribute.key] = value
+    }
+
     return {
       index: index + 1,
       issues,
       input: {
-        serialNumber: serial,
+        name,
         manufacturer: get("manufacturer"),
-        model: get("model"),
+        mpn,
+        ean: get("ean"),
+        serialNumber: serial,
         variant: get("variant"),
         color: get("color"),
-        notes: get("notes"),
-        mileageKm: Number.isNaN(mileageKm) ? 0 : mileageKm,
+        quantity: serialized ? 1 : Number.isFinite(quantity) ? quantity : 1,
         purchasePriceCents: purchaseCents ?? 0,
         salePriceCents: saleCents,
+        mileageKm: Number.isNaN(mileageKm) ? 0 : mileageKm,
         condition: mapCondition(get("condition")),
         purchaseDate: parseGermanDate(rawDate),
+        location: get("location"),
+        notes: get("notes"),
+        attributes,
       },
     }
   })
@@ -1155,6 +1381,7 @@ function buildRows(
  */
 function mapCondition(raw: string): Condition {
   const value = raw.trim().toUpperCase()
+  if (["NEU", "NEUWARE"].includes(value)) return "NEU"
   if (["A", "A+", "WIE NEU", "NEUWERTIG"].includes(value)) return "WIE_NEU"
   if (["B", "SEHR GUT"].includes(value)) return "SEHR_GUT"
   if (["C", "GUT"].includes(value)) return "GUT"
@@ -1186,10 +1413,4 @@ function parseGermanDate(raw: string): string {
   return Number.isNaN(parsed.getTime())
     ? new Date().toISOString()
     : parsed.toISOString()
-}
-
-function emptyMapping(): Record<ImportTargetField, string> {
-  return Object.fromEntries(
-    IMPORT_TARGET_FIELDS.map((field) => [field, ""])
-  ) as Record<ImportTargetField, string>
 }

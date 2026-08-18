@@ -19,15 +19,17 @@ import { repositories } from "@/lib/data/demo-repository"
 import { runAction } from "@/lib/data/run-action"
 import {
   useActivity,
+  useArticles,
   useCurrentUser,
   useSales,
-  useScooters,
+  useUnits,
 } from "@/hooks/use-cockpit"
 
 /** Systemeinstellungen, Benutzerinfo und Demo-Verwaltung. */
 export function SettingsView() {
   const user = useCurrentUser()
-  const scooters = useScooters()
+  const articles = useArticles()
+  const units = useUnits()
   const sales = useSales()
   const activity = useActivity()
   const [resetOpen, setResetOpen] = useState(false)
@@ -82,7 +84,9 @@ export function SettingsView() {
       )
       if (summary) {
         toast.success("Sicherung eingespielt", {
-          description: `${summary.scooters} Scooter und ${summary.sales} Verkäufe übernommen.`,
+          description:
+            `${summary.articles} Artikel, ${summary.units} Einzelstücke und ` +
+            `${summary.sales} Verkäufe übernommen.`,
         })
       }
     } finally {
@@ -136,8 +140,9 @@ export function SettingsView() {
             }
           />
           <PanelBody>
-            <DataGrid className="grid-cols-3 lg:grid-cols-3">
-              <DataField label="Scooter" value={String(scooters.length)} />
+            <DataGrid className="grid-cols-2 lg:grid-cols-4">
+              <DataField label="Artikel" value={String(articles.length)} />
+              <DataField label="Einzelstücke" value={String(units.length)} />
               <DataField label="Verkäufe" value={String(sales.length)} />
               <DataField label="Ereignisse" value={String(activity.length)} />
             </DataGrid>

@@ -25,7 +25,13 @@ import type { StatusTone } from "@/lib/domain/status"
 import { DateTimeText } from "@/components/skope/client-time"
 import { repositories } from "@/lib/data/demo-repository"
 import { runAction } from "@/lib/data/run-action"
-import { useIntegrationState, useSales, useScooters } from "@/hooks/use-cockpit"
+import {
+  useArticles,
+  useIntegrationState,
+  useSales,
+  useUnits,
+} from "@/hooks/use-cockpit"
+import type { Channel } from "@/lib/domain/types"
 
 /**
  * Übersicht der angebundenen Systeme.
@@ -36,29 +42,43 @@ import { useIntegrationState, useSales, useScooters } from "@/hooks/use-cockpit"
  */
 export function IntegrationsView() {
   const integrations = useIntegrationState()
-  const scooters = useScooters()
+  const articles = useArticles()
+  const units = useUnits()
   const sales = useSales()
 
-  const failedListings = scooters.filter((scooter) =>
-    scooter.listings.some((listing) => listing.status === "FEHLER")
-  ).length
+  /*
+    Gezählt wird über Artikel *und* Einzelstücke.
+
+    Mengenartikel werden als Artikel inseriert, Geräte je Stück — eine Zählung
+    über nur eine der beiden Ebenen würde die Hälfte der Angebote verschweigen.
+  */
+  const listingsOf = (channel: Channel, status: string) =>
+    articles.filter((article) =>
+      article.listings.some(
+        (listing) => listing.channel === channel && listing.status === status
+      )
+    ).length +
+    units.filter((unit) =>
+      unit.listings.some(
+        (listing) => listing.channel === channel && listing.status === status
+      )
+    ).length
+
+  const failedListings =
+    articles.filter((article) =>
+      article.listings.some((listing) => listing.status === "FEHLER")
+    ).length +
+    units.filter((unit) =>
+      unit.listings.some((listing) => listing.status === "FEHLER")
+    ).length
+
   const failedSheets = sales.filter(
     (sale) => sale.sheetsSyncStatus === "FEHLER"
   ).length
 
-  const publishedCount = scooters.filter((scooter) =>
-    scooter.listings.some(
-      (listing) =>
-        listing.channel === "SHOPIFY" && listing.status === "VEROEFFENTLICHT"
-    )
-  ).length
-  const kleinanzeigenCount = scooters.filter((scooter) =>
-    scooter.listings.some(
-      (listing) =>
-        listing.channel === "KLEINANZEIGEN" &&
-        listing.status === "VEROEFFENTLICHT"
-    )
-  ).length
+  const publishedCount = listingsOf("SHOPIFY", "VEROEFFENTLICHT")
+  const ebayCount = listingsOf("EBAY", "VEROEFFENTLICHT")
+  const kleinanzeigenCount = listingsOf("KLEINANZEIGEN", "VEROEFFENTLICHT")
   const syncedSales = sales.filter(
     (sale) => sale.sheetsSyncStatus === "SYNCHRONISIERT"
   ).length
@@ -74,7 +94,7 @@ export function IntegrationsView() {
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-skope-accent" />
         <p className="text-sm leading-relaxed text-foreground/85">
           <span className="font-medium">Alle Integrationen laufen im Demo-Modus.</span>{" "}
-          Es werden keine Daten an Shopify, Kleinanzeigen oder Google gesendet.
+          Es werden keine Daten an Shopify, eBay, Kleinanzeigen oder Google gesendet.
           Die Abläufe, Fehlerzustände und Wiederholungen entsprechen aber dem,
           was später produktiv passiert.
         </p>
@@ -83,16 +103,19 @@ export function IntegrationsView() {
       <div className="grid gap-4 lg:grid-cols-2">
         <IntegrationCard
           icon={Database}
-          name="Avides"
+          name="Lieferantenimport"
           status="Import bereit"
           tone="info"
-          summary="Generischer CSV-Import mit frei konfigurierbarem Spalten-Mapping."
+          summary="Generischer CSV-Import je Bereich, mit frei konfigurierbarem Spalten-Mapping — auch auf die eigenen Merkmalsfelder."
           facts={[
             { label: "Format", value: "CSV / TSV (clientseitig)" },
             { label: "XLSX", value: "kommt mit der echten Anbindung" },
-            { label: "Dublettenprüfung", value: "über Seriennummer" },
+            {
+              label: "Dublettenprüfung",
+              value: "Seriennummer bzw. Teilenummer",
+            },
           ]}
-          missing="Eine echte Avides-Exportdatei, um das Standard-Mapping festzulegen. Es sind bewusst keine Spaltennamen fest verdrahtet."
+          missing="Je eine echte Exportdatei für Geräte und für Ersatzteile, um die Standard-Zuordnung festzulegen. Es sind bewusst keine Spaltennamen fest verdrahtet."
           action={{ href: "/import", label: "Import öffnen" }}
         />
 
@@ -119,15 +142,30 @@ export function IntegrationsView() {
 
         <IntegrationCard
           icon={Tag}
+          name="eBay"
+          status="Inserat wird vorbereitet"
+          tone="info"
+          summary="Das Cockpit baut Titel, Beschreibung, Preis, Artikelmerkmale und Bildreihenfolge fertig auf. Eingestellt wird das Angebot bei eBay selbst; der Status wird hier mitgeführt."
+          facts={[
+            { label: "Als inseriert markiert", value: String(ebayCount) },
+            { label: "Bestandsabgleich", value: "nachtragen" },
+            { label: "Hauptkanal für", value: "Ersatzteile" },
+          ]}
+          missing="eBay-Entwicklerkonto (OAuth-Zugang), Business Policies für Versand, Zahlung und Rücknahme sowie ein Sandbox-Account. Erst damit lässt sich der Bestand automatisch abgleichen — bis dahin muss ein eBay-Verkauf im Cockpit nachgetragen werden."
+          action={{ href: "/proposals", label: "Freigaben öffnen" }}
+        />
+
+        <IntegrationCard
+          icon={Tag}
           name="Kleinanzeigen"
-          status="Manuell"
+          status="Inserat wird vorbereitet"
           tone="neutral"
-          summary="Kein automatisierter Kanal. Das Cockpit führt ausschließlich den internen Inseratsstatus, den ein Mitarbeiter setzt."
+          summary="Kein automatisierter Kanal. Das Cockpit liefert den fertigen Anzeigentext und führt den internen Inseratsstatus."
           facts={[
             { label: "Als inseriert markiert", value: String(kleinanzeigenCount) },
             { label: "Automatischer Abgleich", value: "nicht verfügbar" },
           ]}
-          missing="Discovery: Ist über euren Händler-Account eine Import-/Feed-Schnittstelle für diese Warengruppe möglich? Bis das geklärt ist, wird bewusst keine Automatisierung vorgetäuscht."
+          missing="Discovery: Ist über den Händler-Account eine Import-/Feed-Schnittstelle für diese Warengruppe möglich? Bis das geklärt ist, wird bewusst keine Automatisierung vorgetäuscht."
         />
 
         <IntegrationCard

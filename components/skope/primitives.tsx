@@ -269,7 +269,7 @@ export function DemoTag({
         // Bewusst neutral: Ein Meta-Hinweis trägt keine Handlung und soll
         // dem Primärbutton und der Aktivnavigation den Markenakzent nicht
         // streitig machen.
-        "inline-flex items-center rounded border border-skope-line-strong bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase",
+        "inline-flex items-center rounded border border-skope-line-strong bg-surface-raised px-1.5 py-0.5 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase",
         className
       )}
     >

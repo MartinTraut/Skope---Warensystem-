@@ -144,8 +144,7 @@ export async function parseFile(file: File): Promise<ParsedTable> {
 
   if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
     throw new Error(
-      "XLSX wird im Prototyp noch nicht gelesen. Bitte die Datei als CSV exportieren — " +
-        "die XLSX-Unterstützung kommt mit der echten Avides-Anbindung."
+      "XLSX wird im Prototyp noch nicht gelesen. Bitte die Datei als CSV exportieren."
     )
   }
 
@@ -169,43 +168,59 @@ import type { ImportTargetField } from "@/lib/domain/types"
  * Vorschläge, welche Quellspalte zu welchem Zielfeld passen könnte.
  *
  * Das ist ausdrücklich nur ein Vorschlag: Der Nutzer bestätigt das Mapping im
- * Wizard. Es wird nichts über das echte Avides-Format vorausgesetzt.
+ * Assistenten. Es wird kein bestimmtes Lieferantenformat vorausgesetzt.
  */
 const FIELD_HINTS: Record<ImportTargetField, string[]> = {
-  serialNumber: ["serien", "serial", "sn", "imei", "geräte"],
+  name: ["bezeichnung", "artikelname", "produkt", "modell", "model", "titel", "name"],
   manufacturer: ["hersteller", "marke", "brand", "manufacturer"],
-  // "artikel" fehlt bewusst: "Artikelnummer" ist kein Modellname.
-  model: ["modell", "model", "bezeichnung", "produkt", "typ", "name"],
+  mpn: ["teilenummer", "artikelnummer", "artnr", "art-nr", "mpn", "herstellernummer", "sku"],
+  ean: ["ean", "gtin", "barcode"],
+  serialNumber: ["serien", "serial", "sn", "imei", "geräte"],
   variant: ["variante", "ausfuehrung", "ausführung", "version"],
   color: ["farbe", "color", "colour"],
+  quantity: ["menge", "anzahl", "stück", "stueck", "qty", "quantity", "bestand"],
   purchasePriceCents: ["ek", "einkauf", "purchase", "cost", "netto"],
   salePriceCents: ["vk", "verkauf", "uvp", "preis", "price", "retail"],
   mileageKm: ["laufleistung", "kilometer", "km", "mileage"],
   condition: ["zustand", "condition", "grade", "klasse"],
   purchaseDate: ["datum", "date", "liefer", "eingang", "beleg"],
+  location: ["lager", "regal", "platz", "fach", "location", "bin"],
   notes: ["bemerkung", "notiz", "note", "kommentar", "hinweis"],
 }
 
+/**
+ * Findet zu jedem Zielfeld die wahrscheinlichste Spalte.
+ *
+ * `targets` nimmt beliebige Schlüssel entgegen, damit auch die frei
+ * definierten Merkmalsfelder einer Kategorie (`attr:zoll`) zugeordnet werden
+ * können. Für die gibt es keine Stichwortliste — dort greift der Vergleich
+ * über den mitgegebenen Anzeigenamen.
+ */
 export function suggestMapping(
   headers: string[],
-  targets: readonly ImportTargetField[]
-): Record<ImportTargetField, string> {
+  targets: readonly string[],
+  labels: Record<string, string> = {}
+): Record<string, string> {
   const used = new Set<string>()
-  const result = {} as Record<ImportTargetField, string>
+  const result: Record<string, string> = {}
 
   for (const target of targets) {
-    const hints = FIELD_HINTS[target] ?? []
+    const label = labels[target]
+    const hints =
+      FIELD_HINTS[target as ImportTargetField] ??
+      (label ? [label.toLowerCase()] : [])
+
     const match = headers.find((header) => {
       if (used.has(header)) return false
       const normalized = header.toLowerCase()
-      // Nummernspalten sind nie ein Modell-, Hersteller- oder Farbfeld.
+      // Nummernspalten sind nie ein Namens-, Hersteller- oder Farbfeld.
       if (
         normalized.includes("nummer") &&
-        !["serialNumber"].includes(target)
+        !["serialNumber", "mpn", "ean"].includes(target)
       ) {
         return false
       }
-      return hints.some((hint) => normalized.includes(hint))
+      return hints.some((hint) => hint.length > 1 && normalized.includes(hint))
     })
 
     result[target] = match ?? ""

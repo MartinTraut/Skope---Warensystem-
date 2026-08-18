@@ -46,6 +46,8 @@ interface StatusPillProps {
   /** Punkt pulsiert: laufender Vorgang. */
   pulse?: boolean
   size?: "sm" | "md"
+  /** Erklärung beim Überfahren — für Status, deren Kurzform nicht reicht. */
+  title?: string
   className?: string
 }
 
@@ -55,10 +57,12 @@ export function StatusPill({
   dot = true,
   pulse = false,
   size = "md",
+  title,
   className,
 }: StatusPillProps) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
         size === "sm" ? "px-2 py-0.5 type-caption" : "px-2.5 py-1 text-xs",

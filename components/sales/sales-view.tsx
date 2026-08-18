@@ -5,7 +5,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { Coins, Receipt, TrendingUp } from "lucide-react"
 
-import { SyncBadge } from "@/components/scooters/badges"
+import { SyncBadge } from "@/components/shared/badges"
 import { InlineSelect, SearchInput } from "@/components/skope/form"
 import {
   EmptyState,
@@ -29,6 +29,17 @@ import { SALE_CHANNELS, type Sale } from "@/lib/domain/types"
 import { useHydrated, useSales } from "@/hooks/use-cockpit"
 import { cn } from "@/lib/utils"
 
+/**
+ * Ziel einer Verkaufszeile.
+ *
+ * Ein verkauftes Gerät führt zu seinem Datenblatt, ein Mengenverkauf zum
+ * Artikel. Ohne diese Unterscheidung liefe jeder Teileverkauf auf eine
+ * Detailseite, die es nicht gibt.
+ */
+function saleHref(sale: Sale): string {
+  return sale.unitId ? `/units/${sale.unitId}` : `/inventory/${sale.articleId}`
+}
+
 /** Verkaufsübersicht mit Umsatz, Marge und Reporting-Zustand. */
 export function SalesView() {
   const hydrated = useHydrated()
@@ -47,7 +58,12 @@ export function SalesView() {
       .filter((sale) => channel === "alle" || sale.channel === channel)
       .filter((sale) => {
         if (!needle) return true
-        return [sale.scooterNumber, sale.modelLabel, sale.serialNumber]
+        return [
+          sale.itemNumber,
+          sale.itemLabel,
+          sale.serialNumber,
+          sale.categoryLabel,
+        ]
           .join(" ")
           .toLowerCase()
           .includes(needle)
@@ -192,7 +208,7 @@ function SalesTable({ sales }: { sales: Sale[] }) {
             {sales.map((sale) => (
               <tr
                 key={sale.id}
-                onClick={(event) => openRow(`/scooters/${sale.scooterId}`, event)}
+                onClick={(event) => openRow(saleHref(sale), event)}
                 className="cursor-pointer transition-colors hover:bg-surface-sunken"
               >
                 <td className="py-3 pr-3 pl-5 whitespace-nowrap text-muted-foreground">
@@ -200,13 +216,13 @@ function SalesTable({ sales }: { sales: Sale[] }) {
                 </td>
                 <td className="px-3 py-3">
                   <Link
-                    href={`/scooters/${sale.scooterId}`}
+                    href={saleHref(sale)}
                     className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-accent"
                   >
-                    {sale.scooterNumber}
+                    {sale.itemNumber}
                   </Link>
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                    {sale.modelLabel}
+                    {sale.itemLabel}
                   </span>
                 </td>
                 <td className="px-3 py-3 text-muted-foreground">
@@ -246,19 +262,19 @@ function SalesTable({ sales }: { sales: Sale[] }) {
         {sales.map((sale) => (
           <li
             key={sale.id}
-            onClick={(event) => openRow(`/scooters/${sale.scooterId}`, event)}
+            onClick={(event) => openRow(saleHref(sale), event)}
             className="cursor-pointer px-4 py-4 transition-colors active:bg-surface-sunken"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link
-                  href={`/scooters/${sale.scooterId}`}
+                  href={saleHref(sale)}
                   className="rounded font-mono text-sm font-medium text-foreground"
                 >
-                  {sale.scooterNumber}
+                  {sale.itemNumber}
                 </Link>
                 <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                  {sale.modelLabel}
+                  {sale.itemLabel}
                 </p>
               </div>
               <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">
@@ -338,7 +354,7 @@ function Th({
     <th
       scope="col"
       className={cn(
-        "px-3 py-2.5 text-[10px] font-medium tracking-[0.1em] text-muted-foreground/80 uppercase",
+        "px-3 py-2.5 text-[11px] font-medium tracking-[0.1em] text-muted-foreground/80 uppercase",
         align === "right" && "text-right",
         className
       )}

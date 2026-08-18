@@ -3,12 +3,12 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
 
-import { ConditionBadge, WorkflowBadge } from "@/components/scooters/badges"
+import { ConditionBadge, WorkflowBadge } from "@/components/shared/badges"
 import { buttonVariants } from "@/components/ui/button"
 import { RelativeTime } from "@/components/skope/client-time"
 import { formatKm } from "@/lib/domain/money"
-import { modelLabel } from "@/lib/domain/status"
-import type { Scooter } from "@/lib/domain/types"
+import type { Article, ArticleUnit } from "@/lib/domain/types"
+import { unitLabel } from "@/lib/domain/article-factory"
 import { cn } from "@/lib/utils"
 
 /**
@@ -18,12 +18,17 @@ import { cn } from "@/lib/utils"
  * Vordergrund — deshalb ein prominenter Aktionsbutton statt vieler Spalten.
  */
 export function WorkRow({
-  scooter,
+  unit,
+  article,
+  locationCode,
   meta,
   action,
   warning,
 }: {
-  scooter: Scooter
+  unit: ArticleUnit
+  article: Article | undefined
+  /** Kurzcode des Lagerplatzes, z. B. "A-02". */
+  locationCode?: string
   /** Kurzinformationen, die für diese Arbeitsliste relevant sind. */
   meta?: ReactNode
   action: ReactNode
@@ -36,18 +41,19 @@ export function WorkRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <Link
-              href={`/scooters/${scooter.id}`}
+              href={`/units/${unit.id}`}
               className="rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
             >
-              {scooter.scooterNumber}
+              {unit.unitNumber}
             </Link>
-            <WorkflowBadge status={scooter.workflowStatus} size="sm" />
-            <ConditionBadge condition={scooter.condition} />
+            <WorkflowBadge status={unit.workflowStatus} size="sm" />
+            <ConditionBadge condition={unit.condition} />
           </div>
 
           <p className="mt-1 truncate text-sm text-muted-foreground">
-            {modelLabel(scooter)} · {formatKm(scooter.mileageKm)} ·{" "}
-            {scooter.location}
+            {article ? unitLabel(article, unit) : "Artikel unbekannt"}
+            {unit.mileageKm > 0 && ` · ${formatKm(unit.mileageKm)}`}
+            {locationCode && ` · ${locationCode}`}
           </p>
 
           {meta && <div className="mt-2.5">{meta}</div>}
@@ -61,11 +67,11 @@ export function WorkRow({
 
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden text-xs whitespace-nowrap text-muted-foreground lg:inline">
-            <RelativeTime iso={scooter.updatedAt} />
+            <RelativeTime iso={unit.updatedAt} />
           </span>
           {action}
           <Link
-            href={`/scooters/${scooter.id}`}
+            href={`/units/${unit.id}`}
             className={buttonVariants({
               variant: "outline",
               className: "h-10 px-3.5",

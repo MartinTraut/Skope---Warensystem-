@@ -7,9 +7,9 @@
  */
 
 import type {
+  ArticleUnit,
   InspectionCheckDefinition,
   InspectionRecord,
-  Scooter,
 } from "./types"
 
 export const INSPECTION_CHECKS: InspectionCheckDefinition[] = [
@@ -87,8 +87,8 @@ export function getInspectionProgress(
 }
 
 /** Prüfpunkte mit Problem — Grundlage für "Reparatur erforderlich". */
-export function getProblemChecks(scooter: Scooter) {
-  return scooter.inspection.checks
+export function getProblemChecks(unit: ArticleUnit) {
+  return unit.inspection.checks
     .filter((check) => check.result === "PROBLEM")
     .map((check) => ({
       ...check,

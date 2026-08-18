@@ -8,6 +8,7 @@ import { ListSkeleton } from "@/components/skope/skeletons"
 import { RelativeTime } from "@/components/skope/client-time"
 import { useActivity, useHydrated } from "@/hooks/use-cockpit"
 import type { AuditEvent } from "@/lib/domain/types"
+import { auditEventHref } from "@/components/skope/links"
 import { cn } from "@/lib/utils"
 
 const LEVEL_DOT: Record<AuditEvent["level"], string> = {
@@ -74,12 +75,12 @@ export function ActivityList({ events }: { events: AuditEvent[] }) {
           />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              {event.scooterNumber && event.scooterId ? (
+              {event.itemNumber && auditEventHref(event) ? (
                 <Link
-                  href={`/scooters/${event.scooterId}`}
+                  href={auditEventHref(event)!}
                   className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
                 >
-                  {event.scooterNumber}
+                  {event.itemNumber}
                 </Link>
               ) : (
                 <span className="type-body-sm font-medium text-foreground">

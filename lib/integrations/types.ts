@@ -14,7 +14,7 @@
  *    idempotent gedacht. Ein doppelter Klick darf kein zweites Produkt anlegen.
  */
 
-import type { Sale, Scooter } from "@/lib/domain/types"
+import type { Sale } from "@/lib/domain/types"
 
 export type AdapterResult<T> =
   | { ok: true; data: T }
@@ -50,6 +50,28 @@ export function fail<T>(
 /* Marketplace                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Was ein Kanal braucht, um ein Angebot einzustellen.
+ *
+ * Bewusst ein eigener, flacher Typ statt `Article` oder `ArticleUnit`: Ein
+ * Kanal interessiert sich nicht dafür, ob dahinter ein Gerät mit
+ * Prüfprotokoll oder eine Kiste Bremsbeläge steht. Diese Trennung ist der
+ * Grund, warum derselbe Adapter beide Bestandsarten bedienen kann.
+ */
+export interface ListingPayload {
+  /** Artikelnummer bzw. Gerätenummer — dient dem Kanal als SKU. */
+  sku: string
+  title: string
+  description: string
+  priceCents: number
+  quantity: number
+  imageUrls: string[]
+  /** Merkmale als Zeilen "Label: Wert" — für Artikelmerkmale im Kanal. */
+  attributeLines: string[]
+  /** Bereits bekannte IDs aus früheren Veröffentlichungen. */
+  externalIds: Record<string, string>
+}
+
 /** Was ein Kanal nach erfolgreicher Veröffentlichung zurückmeldet. */
 export interface PublishResult {
   externalIds: Record<string, string>
@@ -58,20 +80,27 @@ export interface PublishResult {
 }
 
 export interface MarketplaceAdapter {
-  readonly channel: "SHOPIFY" | "KLEINANZEIGEN"
+  readonly channel: "SHOPIFY" | "EBAY" | "KLEINANZEIGEN"
   readonly displayName: string
-  /** false = der Kanal wird manuell gepflegt (aktuell Kleinanzeigen). */
+  /**
+   * false = der Kanal wird manuell gepflegt.
+   *
+   * Für eBay und Kleinanzeigen ist das kein Zwischenstand, sondern die
+   * bewusste Festlegung: Ohne bestätigten Entwicklerzugang wäre jede
+   * Automatik eine Zusage, die das System nicht halten kann. Der Adapter
+   * liefert stattdessen das fertige Inserat zum Übernehmen.
+   */
   readonly supportsApi: boolean
   /** Kennzeichnet Demo-Implementierungen in der Oberfläche. */
   readonly isMock: boolean
 
-  publishProduct(scooter: Scooter): Promise<AdapterResult<PublishResult>>
-  updateProduct(scooter: Scooter): Promise<AdapterResult<PublishResult>>
+  publishProduct(payload: ListingPayload): Promise<AdapterResult<PublishResult>>
+  updateProduct(payload: ListingPayload): Promise<AdapterResult<PublishResult>>
   /** Bestand auf 0 setzen, Angebot aber nicht löschen. */
-  setUnavailable(scooter: Scooter): Promise<AdapterResult<void>>
-  deleteListing(scooter: Scooter): Promise<AdapterResult<void>>
+  setUnavailable(payload: ListingPayload): Promise<AdapterResult<void>>
+  deleteListing(payload: ListingPayload): Promise<AdapterResult<void>>
   getListingStatus(
-    scooter: Scooter
+    payload: ListingPayload
   ): Promise<AdapterResult<{ available: boolean; inventory: number }>>
 }
 

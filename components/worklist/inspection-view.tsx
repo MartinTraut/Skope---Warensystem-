@@ -14,25 +14,29 @@ import {
 import { MetricGridSkeleton, TableSkeleton } from "@/components/skope/skeletons"
 import { buttonVariants } from "@/components/ui/button"
 import { getInspectionProgress } from "@/lib/domain/inspection"
-import { isInStock } from "@/lib/domain/status"
-import { useHydrated, useScooters } from "@/hooks/use-cockpit"
-import type { Scooter } from "@/lib/domain/types"
+import {
+  useHydrated,
+  useUnitLookup,
+  useUnitsInStock,
+} from "@/hooks/use-cockpit"
+import type { ArticleUnit } from "@/lib/domain/types"
 
 /** Arbeitsliste Prüfung: was ist offen, was ist angefangen, was hat Mängel. */
 export function InspectionView() {
   const hydrated = useHydrated()
-  const scooters = useScooters().filter(isInStock)
+  const units = useUnitsInStock()
+  const lookup = useUnitLookup()
 
-  const open = scooters.filter(
-    (scooter) =>
-      scooter.inspection.completedAt === null &&
-      scooter.workflowStatus !== "ARCHIVIERT"
+  const open = units.filter(
+    (unit) =>
+      unit.inspection.completedAt === null &&
+      unit.workflowStatus !== "ARCHIVIERT"
   )
   const started = open.filter(
-    (scooter) => getInspectionProgress(scooter.inspection).checked > 0
+    (unit) => getInspectionProgress(unit.inspection).checked > 0
   )
-  const withProblems = scooters.filter(
-    (scooter) => getInspectionProgress(scooter.inspection).problems > 0
+  const withProblems = units.filter(
+    (unit) => getInspectionProgress(unit.inspection).problems > 0
   )
 
   return (
@@ -92,12 +96,14 @@ export function InspectionView() {
           />
         ) : (
           <ul className="divide-y divide-skope-line">
-            {sortByProgress(open).map((scooter) => {
-              const progress = getInspectionProgress(scooter.inspection)
+            {sortByProgress(open).map((unit) => {
+              const progress = getInspectionProgress(unit.inspection)
               return (
                 <WorkRow
-                  key={scooter.id}
-                  scooter={scooter}
+                  key={unit.id}
+                  unit={unit}
+                  article={lookup.article(unit)}
+                  locationCode={lookup.locationCode(unit)}
                   meta={
                     <MiniProgress
                       value={progress.percent}
@@ -111,7 +117,7 @@ export function InspectionView() {
                   }
                   action={
                     <Link
-                      href={`/scooters/${scooter.id}`}
+                      href={`/units/${unit.id}`}
                       className={buttonVariants({ className: "h-10 px-3.5" })}
                     >
                       {progress.checked > 0 ? "Fortsetzen" : "Prüfen"}
@@ -139,18 +145,20 @@ export function InspectionView() {
             }
           />
           <ul className="divide-y divide-skope-line">
-            {withProblems.map((scooter) => {
-              const progress = getInspectionProgress(scooter.inspection)
+            {withProblems.map((unit) => {
+              const progress = getInspectionProgress(unit.inspection)
               return (
                 <WorkRow
-                  key={scooter.id}
-                  scooter={scooter}
+                  key={unit.id}
+                  unit={unit}
+                  article={lookup.article(unit)}
+                  locationCode={lookup.locationCode(unit)}
                   warning={`${progress.problems} Prüfpunkt${
                     progress.problems === 1 ? "" : "e"
                   } mit Problem`}
                   action={
                     <Link
-                      href={`/scooters/${scooter.id}`}
+                      href={`/units/${unit.id}`}
                       className={buttonVariants({
                         variant: "outline",
                         className: "h-10 px-3.5",
@@ -170,11 +178,11 @@ export function InspectionView() {
 }
 
 /** Angefangene Prüfungen zuerst — die will man zu Ende bringen. */
-function sortByProgress(scooters: Scooter[]): Scooter[] {
-  return [...scooters].sort((a, b) => {
+function sortByProgress(units: ArticleUnit[]): ArticleUnit[] {
+  return [...units].sort((a, b) => {
     const progressA = getInspectionProgress(a.inspection).checked
     const progressB = getInspectionProgress(b.inspection).checked
     if (progressA !== progressB) return progressB - progressA
-    return a.scooterNumber.localeCompare(b.scooterNumber)
+    return a.unitNumber.localeCompare(b.unitNumber)
   })
 }

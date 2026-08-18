@@ -1,22 +1,32 @@
 import {
   Activity,
+  ArrowLeftRight,
   ClipboardCheck,
+  FolderTree,
   LayoutDashboard,
+  MapPin,
   PackageOpen,
+  Package,
   Plug,
   Receipt,
+  ScanLine,
+  Send,
   Settings,
+  Unplug,
   Upload,
   Wrench,
-  Zap,
   type LucideIcon,
 } from "lucide-react"
 
 /**
  * Navigationsstruktur des Cockpits.
  *
- * Gruppiert nach dem tatsächlichen Arbeitsablauf, nicht nach technischen
- * Bereichen: Wer im Lager steht, sucht "Wareneingang", nicht "Datenimport".
+ * Gegliedert nach dem tatsächlichen Arbeitsablauf, nicht nach technischen
+ * Bereichen: Wer im Lager steht, sucht „Wareneingang", nicht „Datenimport".
+ *
+ * Die vier Gruppen entsprechen vier Orten im Betrieb — Lager, Werkstatt,
+ * Vertrieb, Büro. Das ist der Grund, warum Ausschlachtung bei der Werkstatt
+ * steht und nicht beim Bestand: Zerlegt wird an der Werkbank.
  */
 
 export interface NavItem {
@@ -24,7 +34,13 @@ export interface NavItem {
   label: string
   icon: LucideIcon
   /** Welche Kennzahl als Zähler neben dem Eintrag steht. */
-  badge?: "inbound" | "inspection" | "refurbishment" | "failedSyncs"
+  badge?:
+    | "inbound"
+    | "inspection"
+    | "refurbishment"
+    | "proposals"
+    | "reorder"
+    | "failedSyncs"
   description: string
 }
 
@@ -41,32 +57,44 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/dashboard",
         label: "Dashboard",
         icon: LayoutDashboard,
-        description: "Bestand, Umsatz und laufende Vorgänge auf einen Blick",
+        description: "Lagerwert, Umsatz und laufende Vorgänge auf einen Blick",
       },
     ],
   },
   {
-    label: "Warenprozess",
+    label: "Lager",
     items: [
       {
-        href: "/scooters",
-        label: "Scooter",
-        icon: Zap,
-        description: "Gesamter Bestand mit Filtern und Suche",
+        href: "/inventory",
+        label: "Bestand",
+        icon: Package,
+        badge: "reorder",
+        description: "Alle Artikel mit Menge, Wert und Lagerplatz",
       },
       {
         href: "/inbound",
         label: "Wareneingang",
         icon: PackageOpen,
         badge: "inbound",
-        description: "Neu eingetroffene Geräte erfassen und starten",
+        description: "Neu eingetroffene Geräte und Teile erfassen",
       },
       {
-        href: "/import",
-        label: "Import",
-        icon: Upload,
-        description: "Lieferantenlisten einlesen und zuordnen",
+        href: "/movements",
+        label: "Bewegungen",
+        icon: ArrowLeftRight,
+        description: "Jede Zu- und Abbuchung mit Grund und Zeitpunkt",
       },
+      {
+        href: "/stocktake",
+        label: "Inventur",
+        icon: ScanLine,
+        description: "Gezählte Mengen erfassen und Abweichungen buchen",
+      },
+    ],
+  },
+  {
+    label: "Werkstatt",
+    items: [
       {
         href: "/inspection",
         label: "Prüfung",
@@ -79,13 +107,26 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Aufbereitung",
         icon: Wrench,
         badge: "refurbishment",
-        description: "Reinigung, Reparaturen und Ersatzteile",
+        description: "Reinigung, Reparaturen und verbaute Ersatzteile",
+      },
+      {
+        href: "/teardown",
+        label: "Ausschlachtung",
+        icon: Unplug,
+        description: "Geräte zerlegen und den Einkaufswert auf die Teile verteilen",
       },
     ],
   },
   {
     label: "Vertrieb",
     items: [
+      {
+        href: "/proposals",
+        label: "Freigaben",
+        icon: Send,
+        badge: "proposals",
+        description: "Vorbereitete Inserate prüfen und einstellen",
+      },
       {
         href: "/sales",
         label: "Verkäufe",
@@ -95,14 +136,32 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "System",
+    label: "Verwaltung",
     items: [
+      {
+        href: "/categories",
+        label: "Bereiche",
+        icon: FolderTree,
+        description: "Lagerstruktur, Merkmalsfelder und Kanalregeln",
+      },
+      {
+        href: "/locations",
+        label: "Lagerplätze",
+        icon: MapPin,
+        description: "Regale und Fächer",
+      },
+      {
+        href: "/import",
+        label: "Import",
+        icon: Upload,
+        description: "Lieferantenlisten einlesen und zuordnen",
+      },
       {
         href: "/integrations",
         label: "Integrationen",
         icon: Plug,
         badge: "failedSyncs",
-        description: "Shopify, Kleinanzeigen, Google Sheets und Avides",
+        description: "Shopify, eBay, Kleinanzeigen und Google Sheets",
       },
       {
         href: "/activity",
