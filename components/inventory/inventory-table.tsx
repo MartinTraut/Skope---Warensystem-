@@ -146,6 +146,7 @@ function DesktopTable({
                 quantity={stock.quantity}
                 reorderLevel={stock.reorderLevel}
                 below={stock.belowReorderLevel}
+                inconsistent={stock.inconsistent}
               />
             </Td>
             {!compact && (
@@ -195,10 +196,13 @@ function QuantityCell({
   quantity,
   reorderLevel,
   below,
+  inconsistent = false,
 }: {
   quantity: number
   reorderLevel: number | null
   below: boolean
+  /** Die Buchungen ergeben rechnerisch weniger als null. */
+  inconsistent?: boolean
 }) {
   return (
     <span
@@ -211,10 +215,22 @@ function QuantityCell({
             : "text-foreground"
       )}
       title={
-        reorderLevel !== null ? `Meldebestand: ${reorderLevel}` : undefined
+        inconsistent
+          ? "Die Buchungen ergeben einen negativen Bestand. Es fehlt ein Zugang oder es wurde doppelt abgebucht."
+          : reorderLevel !== null
+            ? `Meldebestand: ${reorderLevel}`
+            : undefined
       }
     >
       {quantity}
+      {inconsistent && (
+        <span
+          aria-label="Bestand widersprüchlich"
+          className="text-state-error"
+        >
+          !
+        </span>
+      )}
       {reorderLevel !== null && (
         <span className="text-[11px] font-normal text-muted-foreground">
           / {reorderLevel}
@@ -306,6 +322,7 @@ function MobileCard({ view }: { view: ArticleView }) {
             quantity={stock.quantity}
             reorderLevel={stock.reorderLevel}
             below={stock.belowReorderLevel}
+            inconsistent={stock.inconsistent}
           />{" "}
           Stück · {settings.pathLabel}
         </p>

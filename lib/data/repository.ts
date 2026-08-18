@@ -270,6 +270,13 @@ export interface StockRepository {
     articleId: string
     quantity: number
     locationId: string | null
+    /**
+     * Gesamterlös des Verkaufs, nicht der Stückpreis.
+     *
+     * Gegenstück ist `Sale.purchasePriceCents`, das ebenfalls als
+     * Menge × Durchschnittseinstand gebildet wird — beides muss dieselbe
+     * Bezugsgröße haben, sonst ist jede Marge falsch.
+     */
     salePriceCents: number
     channel: SaleChannel
     customerSource: CustomerSource

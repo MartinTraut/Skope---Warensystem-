@@ -95,7 +95,7 @@ export function ReceiveDialog({ article, open, onOpenChange }: DialogProps) {
 
   async function submit() {
     const amount = Number.parseInt(quantity, 10)
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isInteger(amount) || amount <= 0) {
       setError("Die Menge muss größer als null sein.")
       return
     }
@@ -292,7 +292,7 @@ export function TransferDialog({ article, open, onOpenChange }: DialogProps) {
 
   async function submit() {
     const amount = Number.parseInt(quantity, 10)
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isInteger(amount) || amount <= 0) {
       setError("Die Menge muss größer als null sein.")
       return
     }
@@ -402,7 +402,7 @@ export function SellQuantityDialog({ article, open, onOpenChange }: DialogProps)
       setError(problem)
       return
     }
-    if (priceCents === null) {
+    if (priceCents === null || priceCents <= 0) {
       setError("Verkaufspreis konnte nicht gelesen werden.")
       return
     }
@@ -414,7 +414,9 @@ export function SellQuantityDialog({ article, open, onOpenChange }: DialogProps)
         articleId: article.id,
         quantity: amount,
         locationId: locationId || null,
-        salePriceCents: priceCents,
+        // Gebucht wird der Gesamterlös: Der Einstand wird im Repository
+        // ebenfalls als Menge × Durchschnittspreis gegengerechnet.
+        salePriceCents: priceCents * amount,
         channel,
         customerSource: source,
         customerRegion: region,

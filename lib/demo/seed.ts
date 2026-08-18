@@ -890,6 +890,7 @@ const PURCHASE_BOOKINGS: Booking[] = [
   { articleId: "art_ladegeraet", quantity: 12, type: "ZUGANG", unitCostCents: 1290, locationId: "loc_elektrik", daysAgo: 155, note: "Neuware" },
   { articleId: "art_schloss", quantity: 8, type: "ZUGANG", unitCostCents: 2650, locationId: "loc_elektrik", daysAgo: 145, note: "Neuware" },
   { articleId: "art_disp_g30", quantity: 3, type: "ZUGANG", unitCostCents: 1900, locationId: "loc_elektrik", daysAgo: 90, note: "Restposten Händler" },
+  { articleId: "art_disp_pro2", quantity: 3, type: "ZUGANG", unitCostCents: 1400, locationId: "loc_elektrik", daysAgo: 100, note: "Restposten Händler" },
   { articleId: "art_controller_g30", quantity: 2, type: "ZUGANG", unitCostCents: 3400, locationId: "loc_elektrik", daysAgo: 80, note: "Restposten Händler" },
 ]
 

@@ -526,6 +526,13 @@ export interface StockLevel {
   /** Wirksamer Meldebestand aus Artikel bzw. Kategorie. */
   reorderLevel: number | null
   belowReorderLevel: boolean
+  /**
+   * Die Buchungen ergeben rechnerisch einen negativen Bestand.
+   *
+   * Angezeigt wird dann null, aber der Widerspruch bleibt sichtbar: Irgendwo
+   * fehlt ein Zugang oder es wurde doppelt abgebucht.
+   */
+  inconsistent: boolean
 }
 
 /* ------------------------------------------------------------------ */

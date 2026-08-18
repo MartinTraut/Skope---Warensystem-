@@ -883,7 +883,7 @@ class DemoUnitRepository implements UnitRepository {
     if (unit.saleStatus === "VERKAUFT") {
       return actionFail<Sale>("Das Gerät ist bereits als verkauft erfasst.", true)
     }
-    if (input.salePriceCents <= 0) {
+    if (!Number.isFinite(input.salePriceCents) || input.salePriceCents <= 0) {
       return actionFail<Sale>("Ein Verkauf ohne Preis wird nicht gebucht.", true)
     }
 
@@ -1258,10 +1258,10 @@ class DemoStockRepository implements StockRepository {
         true
       )
     }
-    if (input.quantity <= 0) {
-      return actionFail<StockMovement>("Die Menge muss größer als null sein.", true)
+    if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+      return actionFail<StockMovement>("Die Menge muss eine ganze Zahl größer als null sein.", true)
     }
-    if (input.unitCostCents < 0) {
+    if (!Number.isFinite(input.unitCostCents) || input.unitCostCents < 0) {
       return actionFail<StockMovement>("Der Einstandspreis kann nicht negativ sein.", true)
     }
 
@@ -1318,9 +1318,9 @@ class DemoStockRepository implements StockRepository {
         true
       )
     }
-    if (input.countedQuantity < 0) {
+    if (!Number.isInteger(input.countedQuantity) || input.countedQuantity < 0) {
       return actionFail<StockMovement | null>(
-        "Eine gezählte Menge kann nicht negativ sein.",
+        "Eine gezählte Menge muss eine ganze Zahl ab null sein.",
         true
       )
     }
@@ -1363,8 +1363,8 @@ class DemoStockRepository implements StockRepository {
 
     const level = levelOf(input.articleId)
     const available = level.byLocation[input.fromLocationId ?? ""] ?? 0
-    if (input.quantity <= 0) {
-      return actionFail<StockMovement>("Die Menge muss größer als null sein.", true)
+    if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+      return actionFail<StockMovement>("Die Menge muss eine ganze Zahl größer als null sein.", true)
     }
     if (input.quantity > available) {
       return actionFail<StockMovement>(
@@ -1394,7 +1394,7 @@ class DemoStockRepository implements StockRepository {
   async sell(input: Parameters<StockRepository["sell"]>[0]) {
     const article = findArticle(input.articleId)
     if (!article) return actionFail<Sale>("Artikel nicht gefunden.")
-    if (input.salePriceCents <= 0) {
+    if (!Number.isFinite(input.salePriceCents) || input.salePriceCents <= 0) {
       return actionFail<Sale>("Ein Verkauf ohne Preis wird nicht gebucht.", true)
     }
 

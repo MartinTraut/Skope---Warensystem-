@@ -77,11 +77,15 @@ function applyMovement(running: Running, movement: StockMovement): void {
     running.averageCostCents =
       running.quantity > 0 ? Math.round(totalValue / running.quantity) : 0
   } else {
-    running.quantity += movement.quantity
     // Abgänge verändern den Durchschnittspreis nicht. Fällt der Bestand auf
     // null, bleibt der letzte Preis stehen — sonst wäre der nächste Zugang
     // ohne Preisangabe wertlos.
-    if (running.quantity <= 0) running.quantity = Math.max(0, running.quantity)
+    //
+    // Der laufende Zähler wird hier bewusst **nicht** bei null gekappt: Die
+    // Buchungen werden chronologisch verarbeitet, und eine rückdatierte
+    // Abbuchung steht dann vor dem Zugang, der sie deckt. Wer hier kappt,
+    // verschluckt genau diese Abbuchung und meldet dauerhaft zu viel Bestand.
+    running.quantity += movement.quantity
   }
 
   running.byLocation[locationKey] =
@@ -160,10 +164,15 @@ export function computeStockLevels(
         reorderLevel,
         belowReorderLevel:
           reorderLevel !== null && inStock.length <= reorderLevel,
+        inconsistent: false,
       })
       continue
     }
 
+    // Ein negativer Bestand ist rechnerisch möglich, im Regal aber nicht. Er
+    // wird für die Anzeige auf null gezogen und zugleich als Widerspruch
+    // gemeldet, statt still verschluckt zu werden — sonst sucht niemand nach
+    // der fehlenden Buchung.
     const quantity = Math.max(0, state.quantity)
     levels.set(article.id, {
       articleId: article.id,
@@ -173,6 +182,7 @@ export function computeStockLevels(
       valueCents: quantity * state.averageCostCents,
       reorderLevel,
       belowReorderLevel: reorderLevel !== null && quantity <= reorderLevel,
+      inconsistent: state.quantity < 0,
     })
   }
 
@@ -189,6 +199,7 @@ export function emptyStockLevel(articleId: string): StockLevel {
     valueCents: 0,
     reorderLevel: null,
     belowReorderLevel: false,
+    inconsistent: false,
   }
 }
 
@@ -217,6 +228,12 @@ export function checkAvailability(
   level: StockLevel,
   quantity: number
 ): string | null {
+  if (!Number.isInteger(quantity)) {
+    // NaN rutscht sonst durch jeden Vergleich hindurch (NaN <= 0 ist false)
+    // und landet als Menge in einer Buchung, die den Artikel dauerhaft auf
+    // NaN setzt — rückbuchen lässt sich das nicht mehr.
+    return "Bitte eine ganze Zahl als Menge eingeben."
+  }
   if (quantity <= 0) return "Die Menge muss größer als null sein."
   if (quantity > level.quantity) {
     return `Es sind nur ${level.quantity} Stück auf Bestand.`
