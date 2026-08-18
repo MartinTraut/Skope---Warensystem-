@@ -2469,29 +2469,66 @@ class DemoSettingsRepository implements SettingsRepository {
       )
     }
 
-    const sales = (snapshot.sales ?? []).map((sale) => ({
+    /*
+      Jede Liste wird einzeln geprüft, bevor irgendetwas geschrieben wird.
+
+      `?? []` fängt nur `null` und `undefined` ab: Ein Feld, das in einer
+      halb geschriebenen oder von Hand bearbeiteten Datei als Objekt statt
+      als Liste ankommt, rutscht durch und lässt die Bestandsrechnung beim
+      nächsten Rendern abstürzen — mit bereits überschriebenem Vorgänger.
+    */
+    const LIST_FIELDS = [
+      "categories",
+      "locations",
+      "articles",
+      "units",
+      "movements",
+      "teardowns",
+      "proposals",
+      "sales",
+      "activity",
+      "importBatches",
+    ] as const
+
+    const record = snapshot as unknown as Record<string, unknown>
+    const broken = LIST_FIELDS.filter((field) => {
+      const value = record[field]
+      return value !== undefined && value !== null && !Array.isArray(value)
+    })
+    if (broken.length > 0) {
+      return actionFail<SnapshotSummary>(
+        `Die Sicherungsdatei ist beschädigt: ${broken.join(", ")} ist keine Liste. ` +
+          "Es wurde nichts überschrieben.",
+        true
+      )
+    }
+
+    const list = <T,>(value: unknown): T[] =>
+      Array.isArray(value) ? (value as T[]) : []
+
+    const sales = list<Sale>(snapshot.sales).map((sale) => ({
       ...sale,
       sheetsRowNumber: sale.sheetsRowNumber ?? null,
     }))
 
     store().replaceAll({
-      categories: snapshot.categories ?? [],
-      locations: snapshot.locations ?? [],
+      categories: list(snapshot.categories),
+      locations: list(snapshot.locations),
       articles: snapshot.articles,
-      units: snapshot.units ?? [],
-      movements: snapshot.movements ?? [],
-      teardowns: snapshot.teardowns ?? [],
-      proposals: snapshot.proposals ?? [],
+      units: list(snapshot.units),
+      movements: list(snapshot.movements),
+      teardowns: list(snapshot.teardowns),
+      proposals: list(snapshot.proposals),
       sales,
-      activity: snapshot.activity ?? [],
-      importBatches: snapshot.importBatches ?? [],
+      activity: list(snapshot.activity),
+      importBatches: list(snapshot.importBatches),
     })
 
     log({
       category: "SYSTEM",
       action: "Sicherung eingespielt",
       detail:
-        `${snapshot.articles.length} Artikel, ${(snapshot.units ?? []).length} Einzelstücke und ` +
+        `${snapshot.articles.length} Artikel, ${list(snapshot.units).length} Einzelstücke und ` +
         `${sales.length} Verkäufe aus einer Sicherung vom ` +
         `${formatSnapshotDate(snapshot.exportedAt)} übernommen.`,
       level: "warning",
@@ -2499,7 +2536,7 @@ class DemoSettingsRepository implements SettingsRepository {
 
     return actionOk({
       articles: snapshot.articles.length,
-      units: (snapshot.units ?? []).length,
+      units: list(snapshot.units).length,
       sales: sales.length,
     })
   }

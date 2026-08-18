@@ -450,6 +450,40 @@ export const useCockpitStore = create<CockpitState>()(
 )
 
 /* ------------------------------------------------------------------ */
+/* Mehrere Tabs                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Zweiter Tab, gleicher Bestand.
+ *
+ * Der gesamte Zustand liegt unter einem festen Schlüssel im localStorage und
+ * wird bei jedem Schreibvorgang komplett überschrieben. Ohne Abgleich gilt:
+ * Wer zuletzt speichert, gewinnt — Tab A bucht einen Verkauf, Tab B sichert
+ * danach irgendeine Kleinigkeit auf Basis seines Morgenstands, und der
+ * Verkauf ist weg. Ohne Fehlermeldung, denn aus Sicht beider Tabs hat alles
+ * funktioniert.
+ *
+ * Das `storage`-Ereignis feuert ausschließlich in den *anderen* Tabs, also
+ * genau dort, wo der veraltete Stand liegt. Wir laden ihn neu, bevor er
+ * etwas überschreiben kann. Das schließt kein gleichzeitiges Schreiben in
+ * derselben Millisekunde aus — dafür braucht es die Datenbank —, beseitigt
+ * aber den Fall, der im Alltag tatsächlich auftritt: zwei offene Tabs über
+ * Stunden hinweg.
+ */
+function watchOtherTabs(): void {
+  if (typeof window === "undefined") return
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY) return
+    // `newValue === null` heißt: Der Schlüssel wurde gelöscht (Cache geleert).
+    // Auch dann ist der eigene Stand nicht mehr die Wahrheit.
+    void useCockpitStore.persist.rehydrate()
+  })
+}
+
+watchOtherTabs()
+
+/* ------------------------------------------------------------------ */
 /* Hydration                                                           */
 /* ------------------------------------------------------------------ */
 

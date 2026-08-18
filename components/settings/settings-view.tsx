@@ -35,6 +35,7 @@ export function SettingsView() {
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function reset() {
@@ -54,13 +55,11 @@ export function SettingsView() {
    * Weg wäre ein geleerter Cache gleichbedeutend mit Totalverlust — und für
    * die spätere Übernahme nach Supabase gäbe es keinen Ausgang.
    */
-  async function exportData() {
-    setBusy(true)
+  async function downloadSnapshot(): Promise<string | null> {
     const data = await runAction(repositories.settings.exportSnapshot(), {
       failure: "Export fehlgeschlagen",
     })
-    setBusy(false)
-    if (!data) return
+    if (!data) return null
 
     const blob = new Blob([data.json], { type: "application/json" })
     const url = URL.createObjectURL(blob)
@@ -70,13 +69,45 @@ export function SettingsView() {
     anchor.click()
     // Die Objekt-URL wieder freigeben, sonst hält sie den Blob im Speicher.
     URL.revokeObjectURL(url)
-    toast.success("Sicherung heruntergeladen", { description: data.fileName })
+    return data.fileName
   }
 
-  async function importData(file: File | undefined) {
+  async function exportData() {
+    setBusy(true)
+    const fileName = await downloadSnapshot()
+    setBusy(false)
+    if (fileName) toast.success("Sicherung heruntergeladen", { description: fileName })
+  }
+
+  /**
+   * Datei nur vormerken.
+   *
+   * Das Einspielen ersetzt den kompletten Bestand und ist der einzige Weg im
+   * System, der alles auf einmal löscht. Ein Fehlgriff im Dateidialog darf
+   * das nicht auslösen — bestätigt wird in `confirmImport`.
+   */
+  function chooseImportFile(file: File | undefined) {
+    if (!file) return
+    setPendingFile(file)
+    if (fileRef.current) fileRef.current.value = ""
+  }
+
+  async function confirmImport() {
+    const file = pendingFile
     if (!file) return
     setBusy(true)
     try {
+      // Rückfallpunkt vor dem Überschreiben: Wer den falschen Stand einspielt,
+      // hat den eigenen dann wenigstens noch als Datei.
+      const backup = await downloadSnapshot()
+      if (!backup) {
+        toast.error("Sicherung nicht eingespielt", {
+          description:
+            "Der Rückfallpunkt konnte nicht erzeugt werden. Es wurde nichts überschrieben.",
+        })
+        return
+      }
+
       const text = await file.text()
       const summary = await runAction(
         repositories.settings.importSnapshot(text),
@@ -86,12 +117,12 @@ export function SettingsView() {
         toast.success("Sicherung eingespielt", {
           description:
             `${summary.articles} Artikel, ${summary.units} Einzelstücke und ` +
-            `${summary.sales} Verkäufe übernommen.`,
+            `${summary.sales} Verkäufe übernommen. Vorheriger Stand: ${backup}`,
         })
+        setPendingFile(null)
       }
     } finally {
       setBusy(false)
-      if (fileRef.current) fileRef.current.value = ""
     }
   }
 
@@ -185,7 +216,7 @@ export function SettingsView() {
               type="file"
               accept="application/json,.json"
               className="sr-only"
-              onChange={(event) => importData(event.target.files?.[0])}
+              onChange={(event) => chooseImportFile(event.target.files?.[0])}
             />
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
@@ -263,6 +294,52 @@ export function SettingsView() {
           </div>
         </PanelBody>
       </Panel>
+
+      <Modal
+        open={pendingFile !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingFile(null)
+        }}
+        title="Sicherung einspielen?"
+        description="Der gesamte aktuelle Stand wird ersetzt und lässt sich danach nur über eine Datei zurückholen."
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              className="h-10 px-4"
+              onClick={() => setPendingFile(null)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="destructive"
+              className="h-10 px-4"
+              onClick={confirmImport}
+              disabled={busy}
+            >
+              {busy ? "Wird eingespielt …" : "Sicherung einspielen"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <p>
+            Datei:{" "}
+            <span className="font-mono text-foreground">{pendingFile?.name}</span>
+          </p>
+          <p>
+            Ersetzt werden{" "}
+            <span className="text-foreground">{articles.length} Artikel</span>,{" "}
+            <span className="text-foreground">{units.length} Einzelstücke</span> und{" "}
+            <span className="text-foreground">{sales.length} Verkäufe</span>.
+          </p>
+          <p>
+            Der aktuelle Stand wird vorher automatisch als Datei heruntergeladen,
+            damit es einen Weg zurück gibt.
+          </p>
+        </div>
+      </Modal>
 
       <Modal
         open={resetOpen}
