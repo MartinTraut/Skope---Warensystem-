@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { AttributeFields, validateAttributes } from "./attribute-fields"
@@ -11,6 +11,7 @@ import {
   SelectField,
   TextField,
   TextareaField,
+  focusFirstInvalid,
 } from "@/components/skope/form"
 import { useCategorySettings } from "@/hooks/use-cockpit"
 import { repositories } from "@/lib/data/demo-repository"
@@ -46,6 +47,7 @@ export function EditArticleDialog({
   const [form, setForm] = useState(() => toForm(article))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const formRef = useRef<HTMLDivElement>(null)
 
   const [wasOpen, setWasOpen] = useState(open)
   if (open !== wasOpen) {
@@ -67,10 +69,12 @@ export function EditArticleDialog({
     const attributeErrors = validateAttributes(settings.attributes, form.attributes)
     if (Object.keys(attributeErrors).length > 0) {
       setErrors(attributeErrors)
+      focusFirstInvalid(formRef.current)
       return
     }
     if (!form.name.trim()) {
       setErrors({ name: "Ohne Bezeichnung lässt sich der Artikel nicht finden." })
+      focusFirstInvalid(formRef.current)
       return
     }
 
@@ -135,7 +139,7 @@ export function EditArticleDialog({
         </>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-6" ref={formRef}>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             label="Bezeichnung"

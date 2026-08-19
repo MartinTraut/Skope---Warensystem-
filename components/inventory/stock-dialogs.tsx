@@ -91,21 +91,24 @@ export function ReceiveDialog({ article, open, onOpenChange }: DialogProps) {
   const [locationId, setLocationId] = useState("")
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   async function submit() {
     const amount = Number.parseInt(quantity, 10)
     if (!Number.isInteger(amount) || amount <= 0) {
-      setError("Die Menge muss größer als null sein.")
+      setErrors({ quantity: "Die Menge muss größer als null sein." })
       return
     }
     const unitCost = parseCents(cost)
     if (unitCost === null) {
-      setError("Einstandspreis konnte nicht gelesen werden.")
+      // Der Preis wird am Preisfeld beanstandet, nicht am Mengenfeld: Ein
+      // Fehlertext unter der Menge, der vom Einstandspreis handelt, schickt
+      // den Blick an die falsche Stelle.
+      setErrors({ cost: "Einstandspreis konnte nicht gelesen werden." })
       return
     }
 
-    setError(null)
+    setErrors({})
     setBusy(true)
     const result = await runAction(
       repositories.stock.receive({
@@ -124,12 +127,18 @@ export function ReceiveDialog({ article, open, onOpenChange }: DialogProps) {
     if (result) onOpenChange(false)
   }
 
+  /*
+    Eine ausgefüllte Buchung ist Arbeit: Menge, Preis, Platz, Notiz. Ein
+    Fehltipp neben das Blatt hat sie bisher wortlos verworfen — deshalb fragt
+    der Dialog nach, sobald etwas darin steht.
+  */
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
       title="Zugang buchen"
       description={`${article.sku} · ${article.name}`}
+      dirty={note.trim() !== "" || quantity !== "1"}
       footer={
         <Footer
           onCancel={() => onOpenChange(false)}
@@ -148,12 +157,13 @@ export function ReceiveDialog({ article, open, onOpenChange }: DialogProps) {
             min={1}
             required
             value={quantity}
-            error={error}
+            error={errors.quantity}
             onChange={(event) => setQuantity(event.target.value)}
           />
           <MoneyField
             label="Einstandspreis je Stück"
             hint="Bestimmt den gleitenden Durchschnittswert."
+            error={errors.cost}
             required
             value={cost}
             onChange={(event) => setCost(event.target.value)}
@@ -189,17 +199,17 @@ export function IssueDialog({ article, open, onOpenChange }: DialogProps) {
   const [locationId, setLocationId] = useState("")
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   async function submit() {
     const amount = Number.parseInt(quantity, 10)
     const problem = checkAvailability(level, amount)
     if (problem) {
-      setError(problem)
+      setErrors({ quantity: problem })
       return
     }
 
-    setError(null)
+    setErrors({})
     setBusy(true)
     const result = await runAction(
       repositories.stock.issue({
@@ -220,6 +230,7 @@ export function IssueDialog({ article, open, onOpenChange }: DialogProps) {
       open={open}
       onOpenChange={onOpenChange}
       title="Abgang buchen"
+      dirty={note.trim() !== "" || quantity !== "1"}
       description={`${article.sku} · Bestand ${level.quantity} Stück`}
       footer={
         <Footer
@@ -239,7 +250,7 @@ export function IssueDialog({ article, open, onOpenChange }: DialogProps) {
             min={1}
             required
             value={quantity}
-            error={error}
+            error={errors.quantity}
             onChange={(event) => setQuantity(event.target.value)}
           />
           <SelectField
@@ -288,24 +299,26 @@ export function TransferDialog({ article, open, onOpenChange }: DialogProps) {
   const [to, setTo] = useState("")
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   async function submit() {
     const amount = Number.parseInt(quantity, 10)
     if (!Number.isInteger(amount) || amount <= 0) {
-      setError("Die Menge muss größer als null sein.")
+      setErrors({ quantity: "Die Menge muss größer als null sein." })
       return
     }
     if (from === to) {
-      setError("Quelle und Ziel sind derselbe Platz.")
+      setErrors({ to: "Quelle und Ziel sind derselbe Platz." })
       return
     }
     if (amount > quantityAt(level, from || null)) {
-      setError(`Am Quellplatz liegen nur ${quantityAt(level, from || null)} Stück.`)
+      setErrors({
+        from: `Am Quellplatz liegen nur ${quantityAt(level, from || null)} Stück.`,
+      })
       return
     }
 
-    setError(null)
+    setErrors({})
     setBusy(true)
     const result = await runAction(
       repositories.stock.transfer({
@@ -326,6 +339,7 @@ export function TransferDialog({ article, open, onOpenChange }: DialogProps) {
       open={open}
       onOpenChange={onOpenChange}
       title="Umlagern"
+      dirty={note.trim() !== "" || quantity !== "1" || from !== "" || to !== ""}
       description={`${article.sku} · ${article.name}`}
       footer={
         <Footer
@@ -344,19 +358,21 @@ export function TransferDialog({ article, open, onOpenChange }: DialogProps) {
           min={1}
           required
           value={quantity}
-          error={error}
+          error={errors.quantity}
           onChange={(event) => setQuantity(event.target.value)}
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             label="Von"
             hint={`${quantityAt(level, from || null)} Stück vorhanden`}
+            error={errors.from}
             value={from}
             onChange={(event) => setFrom(event.target.value)}
             options={locationOptions}
           />
           <SelectField
             label="Nach"
+            error={errors.to}
             value={to}
             onChange={(event) => setTo(event.target.value)}
             options={locationOptions}
@@ -389,7 +405,7 @@ export function SellQuantityDialog({ article, open, onOpenChange }: DialogProps)
   const [locationId, setLocationId] = useState("")
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const amount = Number.parseInt(quantity, 10)
   const priceCents = parseCents(price)
@@ -399,15 +415,15 @@ export function SellQuantityDialog({ article, open, onOpenChange }: DialogProps)
   async function submit() {
     const problem = checkAvailability(level, amount)
     if (problem) {
-      setError(problem)
+      setErrors({ quantity: problem })
       return
     }
     if (priceCents === null || priceCents <= 0) {
-      setError("Verkaufspreis konnte nicht gelesen werden.")
+      setErrors({ price: "Verkaufspreis konnte nicht gelesen werden." })
       return
     }
 
-    setError(null)
+    setErrors({})
     setBusy(true)
     const result = await runAction(
       repositories.stock.sell({
@@ -435,6 +451,7 @@ export function SellQuantityDialog({ article, open, onOpenChange }: DialogProps)
       open={open}
       onOpenChange={onOpenChange}
       title="Verkauf buchen"
+      dirty={note.trim() !== "" || quantity !== "1" || region.trim() !== ""}
       description={`${article.sku} · Bestand ${level.quantity} Stück`}
       size="lg"
       footer={
@@ -455,12 +472,13 @@ export function SellQuantityDialog({ article, open, onOpenChange }: DialogProps)
             min={1}
             required
             value={quantity}
-            error={error}
+            error={errors.quantity}
             onChange={(event) => setQuantity(event.target.value)}
           />
           <MoneyField
             label="Verkaufspreis je Stück"
             hint={total !== null ? `Gesamt ${formatCents(total)}` : undefined}
+            error={errors.price}
             required
             value={price}
             onChange={(event) => setPrice(event.target.value)}

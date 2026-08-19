@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { AttributeFields, validateAttributes } from "./attribute-fields"
@@ -10,6 +10,7 @@ import {
   SelectField,
   TextField,
   TextareaField,
+  focusFirstInvalid,
 } from "@/components/skope/form"
 import { Modal } from "@/components/skope/modal"
 import { StatusPill } from "@/components/skope/status-pill"
@@ -75,6 +76,7 @@ export function NewArticleDialog({
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(defaultCategoryId))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const formRef = useRef<HTMLDivElement>(null)
 
   const settings = useCategorySettings(draft.categoryId || null)
 
@@ -109,6 +111,9 @@ export function NewArticleDialog({
     )
     setErrors({ ...nextErrors, ...prefix(attributeErrors) })
     if (Object.keys(nextErrors).length > 0 || Object.keys(attributeErrors).length > 0) {
+      // Der Anlagedialog ist länger als der Bildschirm: Ohne Sprung zum
+      // ersten Fehler sieht ein Klick auf „Anlegen" aus wie ein toter Knopf.
+      focusFirstInvalid(formRef.current)
       return
     }
 
@@ -156,7 +161,7 @@ export function NewArticleDialog({
         </>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-5" ref={formRef}>
         <div className="grid gap-4 sm:grid-cols-2">
           <CategorySelect
             value={draft.categoryId}

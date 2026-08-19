@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { CategorySelect } from "@/components/inventory/category-select"
@@ -10,6 +10,7 @@ import {
   SelectField,
   TextField,
   TextareaField,
+  focusFirstInvalid,
 } from "@/components/skope/form"
 import { Modal } from "@/components/skope/modal"
 import { Button } from "@/components/ui/button"
@@ -98,6 +99,7 @@ export function NewUnitDialog({
   }))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const formRef = useRef<HTMLDivElement>(null)
 
   const settings = useCategorySettings(draft.categoryId || null)
 
@@ -141,7 +143,10 @@ export function NewUnitDialog({
     }
 
     setErrors(nextErrors)
-    if (Object.keys(nextErrors).length > 0) return
+    if (Object.keys(nextErrors).length > 0) {
+      focusFirstInvalid(formRef.current)
+      return
+    }
 
     setBusy(true)
 
@@ -210,7 +215,7 @@ export function NewUnitDialog({
         </>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-5" ref={formRef}>
         <div className="grid gap-4 sm:grid-cols-2">
           <CategorySelect
             value={draft.categoryId}
@@ -224,9 +229,9 @@ export function NewUnitDialog({
           />
 
           <Field label="Modell" required error={errors.articleId}>
-            {(id) => (
+            {(control) => (
               <select
-                id={id}
+                {...control}
                 value={draft.articleId}
                 onChange={(event) => set("articleId", event.target.value)}
                 disabled={!draft.categoryId}

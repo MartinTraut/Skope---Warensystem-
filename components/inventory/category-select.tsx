@@ -52,9 +52,9 @@ export function CategorySelect({
       required={required}
       className={className}
     >
-      {(id) => (
+      {(control) => (
         <select
-          id={id}
+          {...control}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className={cn(

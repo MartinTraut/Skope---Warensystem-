@@ -30,6 +30,7 @@ import {
 } from "@/components/skope/primitives"
 import { ListSkeleton, MetricGridSkeleton } from "@/components/skope/skeletons"
 import { StatusPill } from "@/components/skope/status-pill"
+import { TOUCH_EXTEND } from "@/components/skope/focus"
 import { Button } from "@/components/ui/button"
 import {
   useArticles,
@@ -58,6 +59,7 @@ import {
   type StockMode,
 } from "@/lib/domain/types"
 import { STOCK_MODE_META } from "@/lib/domain/status"
+import { cn } from "@/lib/utils"
 
 /**
  * Bereiche — der Baum, an dem alles andere hängt.
@@ -272,7 +274,7 @@ function CategoryNode({
           </Link>
           <Button
             variant="ghost"
-            className="size-9 p-0"
+            className={cn("size-9 p-0", TOUCH_EXTEND)}
             aria-label="Unterbereich anlegen"
             onClick={() => onAddChild(category.id)}
           >
@@ -280,7 +282,7 @@ function CategoryNode({
           </Button>
           <Button
             variant="ghost"
-            className="size-9 p-0"
+            className={cn("size-9 p-0", TOUCH_EXTEND)}
             aria-label="Bereich bearbeiten"
             onClick={() => onEdit(category)}
           >
@@ -288,7 +290,7 @@ function CategoryNode({
           </Button>
           <Button
             variant="ghost"
-            className="size-9 p-0 text-muted-foreground hover:text-state-error"
+            className={cn("size-9 p-0 text-muted-foreground hover:text-state-error", TOUCH_EXTEND)}
             aria-label="Bereich löschen"
             onClick={() => onRemove(category)}
           >

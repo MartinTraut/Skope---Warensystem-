@@ -136,7 +136,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-modal="true"
           aria-label="Navigation"
           onKeyDown={(event) => {
-            if (event.key === "Escape") setDrawerOpen(false)
+            if (event.key === "Escape") {
+              setDrawerOpen(false)
+              return
+            }
+            if (event.key !== "Tab") return
+
+            /*
+              Fokus im Drawer halten.
+
+              `aria-modal` sagt Screenreadern, dass der Rest der Seite nicht
+              gilt — die Tabulatortaste hielt sich nicht daran und lief hinter
+              das Overlay in eine Seite, die niemand sehen kann. Hier läuft
+              der Fokus am Ende der Liste auf den Anfang zurück.
+            */
+            const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
+              "a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex='-1'])"
+            )
+            if (!focusable || focusable.length === 0) return
+
+            const first = focusable[0]
+            const last = focusable[focusable.length - 1]
+            const active = document.activeElement
+
+            if (event.shiftKey && (active === first || !drawerRef.current?.contains(active))) {
+              event.preventDefault()
+              last.focus()
+            } else if (!event.shiftKey && active === last) {
+              event.preventDefault()
+              first.focus()
+            }
           }}
         >
           <button
@@ -438,15 +467,26 @@ function Topbar({
         <Menu className="size-5" />
       </button>
 
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="min-w-0 lg:hidden">
-          <SkopeLogo height={34} />
+      {/*
+        Unter 1024 px stand hier nur die Marke: Wer am Telefon aus der
+        Navigation kam, sah nirgends, auf welcher Seite er gelandet war —
+        die Überschrift war ausgeblendet, weil der Platz für beides nicht
+        reichte. Jetzt teilen sich Marke und Seitentitel die Zeile, die
+        Beschreibung bleibt dem breiten Schirm vorbehalten.
+      */}
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="shrink-0 lg:hidden">
+          <SkopeLogo height={26} />
         </div>
-        <div className="hidden min-w-0 lg:block">
+        <span
+          aria-hidden
+          className="h-5 w-px shrink-0 bg-skope-line-strong lg:hidden"
+        />
+        <div className="min-w-0">
           <p className="truncate text-sm font-medium text-foreground">
             {current?.label ?? "Cockpit"}
           </p>
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="hidden truncate text-xs text-muted-foreground lg:block">
             {current?.description ?? "SKOPE Warenwirtschaft"}
           </p>
         </div>

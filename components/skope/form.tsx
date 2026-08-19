@@ -26,13 +26,27 @@ const CONTROL_HEIGHT = "h-11"
 /* Feldrahmen                                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Was ein Feldrahmen seinem Steuerelement mitgibt.
+ *
+ * Wird als Ganzes auf das Element gespreizt. Vorher bekam es nur die `id`;
+ * Fehlertext und Hinweis standen zwar sichtbar darunter, waren aber mit dem
+ * Feld nicht verbunden: Wer das Formular vorgelesen bekommt, hörte „Menge,
+ * ungültig" — und nie, was daran ungültig ist.
+ */
+export interface FieldControl {
+  id: string
+  "aria-describedby": string | undefined
+  "aria-invalid": true | undefined
+}
+
 interface FieldProps {
   label: ReactNode
   hint?: ReactNode
   error?: string | null
   required?: boolean
   className?: string
-  children: (id: string) => ReactNode
+  children: (control: FieldControl) => ReactNode
 }
 
 export function Field({
@@ -44,6 +58,8 @@ export function Field({
   children,
 }: FieldProps) {
   const id = useId()
+  const messageId = `${id}-message`
+  const hasMessage = Boolean(error) || Boolean(hint)
 
   return (
     <div className={cn("min-w-0", className)}>
@@ -54,11 +70,24 @@ export function Field({
         {label}
         {required && <span className="ml-1 text-skope-accent">*</span>}
       </label>
-      {children(id)}
+      {children({
+        id,
+        "aria-describedby": hasMessage ? messageId : undefined,
+        "aria-invalid": error ? true : undefined,
+      })}
       {error ? (
-        <p className="mt-1.5 text-xs text-state-error">{error}</p>
+        /*
+          `role="alert"`, weil der Fehler nach dem Absenden erscheint: Ohne ihn
+          bleibt der Hinweis für Screenreader stumm, bis jemand zufällig
+          zurück in das Feld wandert.
+        */
+        <p id={messageId} role="alert" className="mt-1.5 text-xs text-state-error">
+          {error}
+        </p>
       ) : hint ? (
-        <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>
+        <p id={messageId} className="mt-1.5 text-xs text-muted-foreground">
+          {hint}
+        </p>
       ) : null}
     </div>
   )
@@ -94,16 +123,15 @@ export function TextField({
       required={required}
       className={className}
     >
-      {(id) => (
+      {(control) => (
         <input
-          id={id}
+          {...control}
           className={cn(
             CONTROL_BASE,
             CONTROL_HEIGHT,
             mono && "font-mono",
             error && "border-state-error/60 focus:border-state-error focus:ring-state-error/15"
           )}
-          aria-invalid={error ? true : undefined}
           {...props}
         />
       )}
@@ -138,10 +166,10 @@ export function SelectField({
       required={required}
       className={className}
     >
-      {(id) => (
+      {(control) => (
         <div className="relative">
           <select
-            id={id}
+            {...control}
             className={cn(
               CONTROL_BASE,
               CONTROL_HEIGHT,
@@ -188,11 +216,15 @@ export function TextareaField({
       required={required}
       className={className}
     >
-      {(id) => (
+      {(control) => (
         <textarea
-          id={id}
+          {...control}
           rows={rows}
-          className={cn(CONTROL_BASE, "resize-y py-2.5 leading-relaxed")}
+          className={cn(
+            CONTROL_BASE,
+            "resize-y py-2.5 leading-relaxed",
+            error && "border-state-error/60 focus:border-state-error focus:ring-state-error/15"
+          )}
           {...props}
         />
       )}
@@ -222,10 +254,10 @@ export function MoneyField({
       required={required}
       className={className}
     >
-      {(id) => (
+      {(control) => (
         <div className="relative">
           <input
-            id={id}
+            {...control}
             inputMode="decimal"
             placeholder="0,00"
             className={cn(
@@ -243,6 +275,30 @@ export function MoneyField({
       )}
     </Field>
   )
+}
+
+/* ------------------------------------------------------------------ */
+/* Fehlerbehandlung                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Springt zum ersten beanstandeten Feld.
+ *
+ * Ein Formular, das nach dem Absenden nur rote Texte einblendet, lässt den
+ * Benutzer suchen — und im langen Anlagedialog liegt das Feld oft außerhalb
+ * des Bildschirms, sodass der Klick auf „Speichern" scheinbar nichts tut.
+ * Aufzurufen, nachdem die Fehler gesetzt sind: Das Feld erkennt sich selbst
+ * an `aria-invalid`, deshalb braucht diese Funktion keine Feldnamen.
+ */
+export function focusFirstInvalid(container: HTMLElement | null) {
+  if (!container) return
+  // Ein Bild später, damit React `aria-invalid` gesetzt hat.
+  requestAnimationFrame(() => {
+    const target = container.querySelector<HTMLElement>('[aria-invalid="true"]')
+    if (!target) return
+    target.scrollIntoView({ block: "center", behavior: "smooth" })
+    target.focus({ preventScroll: true })
+  })
 }
 
 /* ------------------------------------------------------------------ */

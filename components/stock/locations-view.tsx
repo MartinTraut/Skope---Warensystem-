@@ -16,6 +16,7 @@ import {
   PageHeader,
 } from "@/components/skope/primitives"
 import { ListSkeleton, MetricGridSkeleton } from "@/components/skope/skeletons"
+import { TOUCH_EXTEND } from "@/components/skope/focus"
 import { Button } from "@/components/ui/button"
 import {
   useArticles,
@@ -29,6 +30,7 @@ import { runAction } from "@/lib/data/run-action"
 import { formatCents, formatNumber } from "@/lib/domain/money"
 import { isUnitInStock } from "@/lib/domain/stock"
 import type { StorageLocation } from "@/lib/domain/types"
+import { cn } from "@/lib/utils"
 
 /**
  * Lagerplätze verwalten.
@@ -157,7 +159,7 @@ export function LocationsView() {
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
-                        className="size-9 p-0"
+                        className={cn("size-9 p-0", TOUCH_EXTEND)}
                         aria-label="Lagerplatz bearbeiten"
                         onClick={() => setEditing(location)}
                       >
@@ -165,7 +167,7 @@ export function LocationsView() {
                       </Button>
                       <Button
                         variant="ghost"
-                        className="size-9 p-0 text-muted-foreground hover:text-state-error"
+                        className={cn("size-9 p-0 text-muted-foreground hover:text-state-error", TOUCH_EXTEND)}
                         aria-label="Lagerplatz löschen"
                         onClick={() => setRemoving(location)}
                       >

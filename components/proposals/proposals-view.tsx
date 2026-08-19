@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { Check, CheckCheck, Copy, Inbox, RefreshCw, X } from "lucide-react"
 
 import { DateTimeText } from "@/components/skope/client-time"
+import { ConfirmDialog } from "@/components/skope/confirm-dialog"
 import { InlineSelect } from "@/components/skope/form"
 import { Modal } from "@/components/skope/modal"
 import {
@@ -46,6 +47,7 @@ export function ProposalsView() {
   const [status, setStatus] = useState("OFFEN")
   const [channel, setChannel] = useState("alle")
   const [selected, setSelected] = useState<string[]>([])
+  const [askApproval, setAskApproval] = useState(false)
   const [preview, setPreview] = useState<PublicationProposal | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -130,7 +132,7 @@ export function ProposalsView() {
             </Button>
             <Button
               className="h-10 gap-2 px-4"
-              onClick={approveSelected}
+              onClick={() => setAskApproval(true)}
               disabled={selected.length === 0 || busy}
             >
               <CheckCheck className="size-4" />
@@ -245,6 +247,52 @@ export function ProposalsView() {
         proposal={preview}
         onOpenChange={(open) => !open && setPreview(null)}
       />
+
+      {/*
+        Freigeben heißt: Das Inserat geht nach außen. Wohin genau, stand
+        vorher nirgends — der Knopf trug nur eine Zahl. Jetzt zählt die
+        Rückfrage die Kanäle auf und sagt, welche davon im Demo-Betrieb
+        laufen.
+      */}
+      <ConfirmDialog
+        open={askApproval}
+        onOpenChange={setAskApproval}
+        tone="default"
+        title={`${selected.length} Inserat${selected.length === 1 ? "" : "e"} freigeben`}
+        confirmLabel="Jetzt freigeben"
+        description={
+          <div className="space-y-3">
+            <p>
+              Die ausgewählten Inserate werden an ihren Kanal übergeben und
+              sind danach dort sichtbar. Zurücknehmen geht nur am Gerät oder
+              Artikel selbst.
+            </p>
+            <ul className="space-y-1 rounded-lg border border-skope-line bg-surface-sunken p-3 text-sm">
+              {Object.entries(
+                proposals
+                  .filter((proposal) => selected.includes(proposal.id))
+                  .reduce<Record<string, number>>((tally, proposal) => {
+                    tally[proposal.channel] = (tally[proposal.channel] ?? 0) + 1
+                    return tally
+                  }, {})
+              ).map(([channel, count]) => (
+                <li key={channel} className="flex justify-between gap-3">
+                  <span className="text-foreground">
+                    {CHANNEL_META[channel as PublicationProposal["channel"]].label}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {count} ×
+                    {isMockChannel(channel as PublicationProposal["channel"])
+                      ? " · Demo"
+                      : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        }
+        onConfirm={approveSelected}
+      />
     </div>
   )
 }
@@ -298,13 +346,20 @@ function ProposalRow({
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 transition-colors hover:bg-surface-sunken sm:px-5">
       {isOpen && (
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onToggle}
-          aria-label={`${proposal.title} auswählen`}
-          className="size-4 shrink-0 accent-[var(--skope-accent,#7dd956)]"
-        />
+        /*
+          Das Kästchen bleibt 16 px groß, die Fläche darum wird 44 — das
+          Mindestmaß, das dieses System für Berührungsziele selbst festlegt.
+          Am Tablet traf man vorher den halben Bildschirm daneben.
+        */
+        <label className="-my-2 flex size-11 shrink-0 cursor-pointer items-center justify-center">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onToggle}
+            aria-label={`${proposal.title} auswählen`}
+            className="size-4 accent-[var(--skope-accent,#7dd956)]"
+          />
+        </label>
       )}
 
       {proposal.imageUrls[0] ? (
