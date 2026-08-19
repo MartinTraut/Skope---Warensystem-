@@ -168,6 +168,24 @@ export interface UnitRepository {
   /** Zentraler Verkaufsvorgang. Deaktiviert anschließend alle Kanäle. */
   markAsSold(id: string, input: MarkAsSoldInput): Promise<ActionResult<Sale>>
 
+  /**
+   * Abgang ohne Verkauf: Diebstahl, Totalschaden, Eigenverbrauch.
+   *
+   * Für Mengenartikel gab es das längst (`stock.issue`); ein Gerät konnte den
+   * Bestand nur durch Verkauf oder Ausschlachtung verlassen. Ein gestohlener
+   * Scooter blieb deshalb im Lagerwert stehen oder wurde als Fantasieverkauf
+   * über 0 € gebucht — beides verfälscht die Zahlen, an denen der Betrieb
+   * seine Marge misst. Der Abgang bucht das Gerät mit seinem Einstandswert
+   * aus und archiviert es; der Grund ist Pflicht.
+   */
+  writeOff(
+    id: string,
+    input: {
+      type: Extract<MovementType, "VERLUST" | "VERBRAUCH">
+      reason: string
+    }
+  ): Promise<ActionResult<ArticleUnit>>
+
   /* Prüfung */
   setInspectionCheck(
     id: string,

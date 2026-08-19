@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ClipboardCheck } from "lucide-react"
+import { ClipboardCheck, Download } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/skope/confirm-dialog"
 import { InlineSelect, SearchInput } from "@/components/skope/form"
@@ -27,6 +27,11 @@ import { runAction } from "@/lib/data/run-action"
 import { subtreeIds } from "@/lib/domain/categories"
 import { articleLabel } from "@/lib/domain/article-factory"
 import { formatCents, formatNumber } from "@/lib/domain/money"
+import {
+  csvFileName,
+  downloadCsv,
+  stocktakeCsv,
+} from "@/lib/domain/export-csv"
 import { quantityAt } from "@/lib/domain/stock"
 import type { ArticleView } from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
@@ -122,15 +127,33 @@ export function StocktakeView() {
         title="Inventur"
         description="Zählmengen eintragen und Differenzen als Korrektur buchen. Serialisierte Artikel zählt man am Gerät, nicht in dieser Liste."
         actions={
-          <Button
-            disabled={deviations.length === 0 || busy}
-            onClick={() => setAskBooking(true)}
-          >
-            <ClipboardCheck className="size-4" />
-            {busy
-              ? "Wird gebucht …"
-              : `${deviations.length} Differenz${deviations.length === 1 ? "" : "en"} buchen`}
-          </Button>
+          <>
+            {/*
+              Gezählt wird im Lager, nicht am Bildschirm: Die Liste geht als
+              Tabelle mit — Soll steht drin, die Zählspalte bleibt leer.
+            */}
+            <Button
+              variant="outline"
+              onClick={() =>
+                downloadCsv(
+                  csvFileName("inventur"),
+                  stocktakeCsv(views, categories, locations, targetLocation)
+                )
+              }
+            >
+              <Download className="size-4" />
+              Zählliste
+            </Button>
+            <Button
+              disabled={deviations.length === 0 || busy}
+              onClick={() => setAskBooking(true)}
+            >
+              <ClipboardCheck className="size-4" />
+              {busy
+                ? "Wird gebucht …"
+                : `${deviations.length} Differenz${deviations.length === 1 ? "" : "en"} buchen`}
+            </Button>
+          </>
         }
       />
 

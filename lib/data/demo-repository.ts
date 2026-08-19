@@ -1051,6 +1051,81 @@ class DemoUnitRepository implements UnitRepository {
     return actionOk(stored ?? sale)
   }
 
+  async writeOff(
+    id: string,
+    input: Parameters<UnitRepository["writeOff"]>[1]
+  ) {
+    const unit = findUnit(id)
+    if (!unit) return actionFail<ArticleUnit>("Einzelstück nicht gefunden.")
+    if (!input.reason.trim()) {
+      return actionFail<ArticleUnit>(
+        "Ein Abgang ohne Grund ist nicht nachvollziehbar.",
+        true
+      )
+    }
+    if (!isUnitInStock(unit)) {
+      return actionFail<ArticleUnit>(
+        `${unit.unitNumber} ist nicht mehr im Bestand (${WORKFLOW_META[unit.workflowStatus].label.toLowerCase()}).`,
+        true
+      )
+    }
+    if (unit.saleStatus === "VERKAUFT") {
+      return actionFail<ArticleUnit>(
+        "Das Gerät ist verkauft. Dafür muss zuerst der Verkauf storniert werden.",
+        true
+      )
+    }
+
+    const article = findArticle(unit.articleId)
+    if (!article) return actionFail<ArticleUnit>("Artikel nicht gefunden.")
+
+    const value = unit.purchasePriceCents + unit.additionalCostsCents
+    const now = new Date().toISOString()
+
+    // Buchung und Archivierung gehören zusammen: Ein ausgebuchtes Gerät, das
+    // im Bestand stehen bleibt, wäre nur ein zweiter Weg zum selben Fehler.
+    store().transact(() => {
+      store().addMovements([
+        {
+          id: createId("mov"),
+          at: now,
+          actor: store().user.name,
+          articleId: article.id,
+          unitId: unit.id,
+          quantity: -1,
+          type: input.type,
+          unitCostCents: null,
+          locationId: unit.locationId,
+          toLocationId: null,
+          referenceId: null,
+          note: input.reason.trim(),
+        },
+      ])
+      store().updateUnit(unit.id, (current) => ({
+        ...current,
+        workflowStatus: "ARCHIVIERT",
+        saleStatus: "VERFUEGBAR",
+        locationId: null,
+      }))
+    })
+
+    log({
+      category: "BESTAND",
+      action: input.type === "VERLUST" ? "Gerät als Verlust ausgebucht" : "Gerät verbraucht",
+      detail:
+        `${unit.unitNumber} – ${unitLabel(article, unit)} verlässt den Bestand ` +
+        `(${formatEuro(value)} Einstandswert). Grund: ${input.reason.trim()}`,
+      unit,
+      level: "warning",
+    })
+
+    // Ein ausgebuchtes Gerät darf nirgends mehr angeboten werden.
+    await deactivateAllChannels({ type: "UNIT", id: unit.id })
+
+    const stored = findUnit(id)
+    return actionOk(stored ?? unit)
+  }
+
   /* Prüfung */
 
   async setInspectionCheck(

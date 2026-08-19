@@ -2,7 +2,15 @@
 
 import { useRef, useState } from "react"
 import { toast } from "sonner"
-import { Download, RotateCcw, ShieldCheck, Upload, User } from "lucide-react"
+import {
+  ClipboardList,
+  Download,
+  RotateCcw,
+  ShieldCheck,
+  Table2,
+  Upload,
+  User,
+} from "lucide-react"
 
 import { Modal } from "@/components/skope/modal"
 import {
@@ -19,11 +27,27 @@ import { repositories } from "@/lib/data/demo-repository"
 import { runAction } from "@/lib/data/run-action"
 import {
   useActivity,
+  useAllSales,
   useArticles,
+  useArticleViews,
+  useCategories,
   useCurrentUser,
+  useLocations,
+  useMovements,
   useSales,
+  useTeardowns,
   useUnits,
 } from "@/hooks/use-cockpit"
+import {
+  csvFileName,
+  downloadCsv,
+  movementsCsv,
+  salesCsv,
+  stockCsv,
+  stocktakeCsv,
+  teardownsCsv,
+  unitsCsv,
+} from "@/lib/domain/export-csv"
 
 /** Systemeinstellungen, Benutzerinfo und Demo-Verwaltung. */
 export function SettingsView() {
@@ -32,6 +56,12 @@ export function SettingsView() {
   const units = useUnits()
   const sales = useSales()
   const activity = useActivity()
+  const views = useArticleViews()
+  const categories = useCategories()
+  const locations = useLocations()
+  const movements = useMovements()
+  const teardowns = useTeardowns()
+  const allSales = useAllSales()
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -70,6 +100,31 @@ export function SettingsView() {
     // Die Objekt-URL wieder freigeben, sonst hält sie den Blob im Speicher.
     URL.revokeObjectURL(url)
     return data.fileName
+  }
+
+  /**
+   * Eine Tabelle als CSV herunterladen.
+   *
+   * Bewusst ohne Umweg über das Repository: Hier wird nichts geändert,
+   * sondern nur der Stand ausgeschrieben, den die Ansicht ohnehin hält.
+   */
+  function exportTable(kind: (typeof EXPORTS)[number]["kind"]) {
+    const content =
+      kind === "bestand"
+        ? stockCsv(views, categories, locations)
+        : kind === "geraete"
+          ? unitsCsv(units, articles, categories, locations)
+          : kind === "journal"
+            ? movementsCsv(movements, articles, units, locations)
+            : kind === "verkaeufe"
+              ? salesCsv(allSales)
+              : kind === "ausschlachtungen"
+                ? teardownsCsv(teardowns, articles, locations)
+                : stocktakeCsv(views, categories, locations, null)
+
+    const fileName = csvFileName(kind)
+    downloadCsv(fileName, content)
+    toast.success("Tabelle heruntergeladen", { description: fileName })
   }
 
   async function exportData() {
@@ -228,6 +283,46 @@ export function SettingsView() {
         </PanelBody>
       </Panel>
 
+      {/*
+        Die Vollsicherung ist ein Rückfallpunkt für das System, kein Bericht
+        für Menschen. Wer den Lagerwert zum Stichtag an die Buchhaltung gibt
+        oder mit dem Klemmbrett zählen geht, kann mit einer JSON-Datei nichts
+        anfangen — hier liegen die Tabellen dafür.
+      */}
+      <Panel>
+        <PanelHeader
+          title="Tabellen exportieren"
+          description="Für Buchhaltung, Inventur und Auswertung. Öffnet sich in Excel und Numbers ohne Zwischenschritt."
+        />
+        <PanelBody>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {EXPORTS.map((entry) => (
+              <Button
+                key={entry.kind}
+                variant="outline"
+                className="h-auto justify-start gap-3 px-4 py-3 text-left"
+                onClick={() => exportTable(entry.kind)}
+              >
+                <entry.icon className="size-4 shrink-0 text-skope-accent" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm text-foreground">
+                    {entry.label}
+                  </span>
+                  <span className="type-caption block truncate text-muted-foreground">
+                    {entry.hint}
+                  </span>
+                </span>
+              </Button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Semikolon als Trennzeichen, Komma als Dezimaltrenner — die
+            Schreibweise, die deutsche Tabellenprogramme erwarten. Beträge
+            stehen ohne Währungszeichen, damit sich damit rechnen lässt.
+          </p>
+        </PanelBody>
+      </Panel>
+
       <Panel className="border-state-error/20">
         <PanelHeader
           title="Demo-Daten"
@@ -372,3 +467,46 @@ export function SettingsView() {
     </div>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Verfügbare Tabellen                                                 */
+/* ------------------------------------------------------------------ */
+
+const EXPORTS = [
+  {
+    kind: "bestand",
+    label: "Bestandsliste",
+    hint: "Menge, Einstand, Lagerwert je Artikel",
+    icon: Table2,
+  },
+  {
+    kind: "geraete",
+    label: "Geräteliste",
+    hint: "Jedes Einzelstück mit Seriennummer",
+    icon: Table2,
+  },
+  {
+    kind: "journal",
+    label: "Bewegungsjournal",
+    hint: "Jede Buchung mit Grund und Bearbeiter",
+    icon: Table2,
+  },
+  {
+    kind: "verkaeufe",
+    label: "Verkäufe",
+    hint: "Umsatz und Marge, Stornos gekennzeichnet",
+    icon: Table2,
+  },
+  {
+    kind: "ausschlachtungen",
+    label: "Ausschlachtungen",
+    hint: "Je Zeile ein Teil mit seinem Spender",
+    icon: Table2,
+  },
+  {
+    kind: "inventur",
+    label: "Zählliste",
+    hint: "Soll steht drin, Zählspalte bleibt leer",
+    icon: ClipboardList,
+  },
+] as const

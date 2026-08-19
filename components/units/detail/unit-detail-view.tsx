@@ -7,6 +7,7 @@ import { ArrowLeft, Pencil } from "lucide-react"
 import { SaleBadge, WorkflowBadge } from "@/components/shared/badges"
 import { EditUnitDialog } from "../edit-unit-dialog"
 import { MarkAsSoldDialog } from "../mark-as-sold-dialog"
+import { WriteOffDialog } from "../write-off-dialog"
 import { TabChannels } from "./tab-channels"
 import { TabImages } from "./tab-images"
 import { TabInspection } from "./tab-inspection"
@@ -55,6 +56,7 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
   const [tab, setTab] = useState<TabKey>("overview")
   const [editOpen, setEditOpen] = useState(false)
   const [soldOpen, setSoldOpen] = useState(false)
+  const [writeOffOpen, setWriteOffOpen] = useState(false)
 
   if (!hydrated) {
     return (
@@ -132,6 +134,18 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
               >
                 Veröffentlichen
               </Button>
+              {/*
+                Nicht jedes Gerät verlässt den Bestand über die Kasse.
+                Ohne diesen Weg blieb ein gestohlener Scooter im Lagerwert
+                stehen oder wurde als Verkauf über 0 € gebucht.
+              */}
+              <Button
+                variant="ghost"
+                className="text-muted-foreground hover:text-state-error"
+                onClick={() => setWriteOffOpen(true)}
+              >
+                Ausbuchen
+              </Button>
               <Button onClick={() => setSoldOpen(true)}>
                 Als verkauft markieren
               </Button>
@@ -172,6 +186,11 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
         unit={unit}
         open={soldOpen}
         onOpenChange={setSoldOpen}
+      />
+      <WriteOffDialog
+        unit={unit}
+        open={writeOffOpen}
+        onOpenChange={setWriteOffOpen}
       />
     </div>
   )
