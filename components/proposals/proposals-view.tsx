@@ -22,6 +22,7 @@ import { StatusPill } from "@/components/skope/status-pill"
 import { Button } from "@/components/ui/button"
 import { useHydrated, useProposals } from "@/hooks/use-cockpit"
 import { repositories } from "@/lib/data/demo-repository"
+import { isMockChannel, mockChannelNote } from "@/lib/data/demo-repository"
 import { runAction } from "@/lib/data/run-action"
 import { formatCents, formatNumber } from "@/lib/domain/money"
 import { proposalAsText } from "@/lib/domain/publishing"
@@ -82,6 +83,11 @@ export function ProposalsView() {
 
   async function approveSelected() {
     if (selected.length === 0) return
+    // Vor dem Leeren der Auswahl bestimmen: Danach ist nicht mehr feststellbar,
+    // welche Kanäle betroffen waren.
+    const demoChannelsSelected = proposals
+      .filter((proposal) => selected.includes(proposal.id))
+      .some((proposal) => isMockChannel(proposal.channel))
     setBusy(true)
     const result = await runAction(
       repositories.publishing.approveMany(selected),
@@ -97,7 +103,11 @@ export function ProposalsView() {
           description: "Die fehlgeschlagenen Einträge stehen weiter offen.",
         })
       } else {
-        toast.success(`${result.approved} Inserat(e) freigegeben`)
+        toast.success(`${result.approved} Inserat(e) freigegeben`, {
+          description: demoChannelsSelected
+            ? "Demo-Betrieb — es wurde nichts an die Kanäle gesendet."
+            : undefined,
+        })
       }
     }
   }
@@ -265,6 +275,7 @@ function ProposalRow({
       success: meta.automated
         ? `Auf ${meta.label} veröffentlicht`
         : `Als auf ${meta.label} inseriert vermerkt`,
+      successDescription: mockChannelNote(proposal.channel),
       failure: "Freigabe fehlgeschlagen",
     })
     setBusy(false)

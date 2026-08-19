@@ -17,7 +17,7 @@ import {
 import { StatusPill } from "@/components/skope/status-pill"
 import { Button } from "@/components/ui/button"
 import { useArticle, useCategorySettings, useUnitReadiness } from "@/hooks/use-cockpit"
-import { repositories } from "@/lib/data/demo-repository"
+import { mockChannelNote, repositories } from "@/lib/data/demo-repository"
 import { buildUnitListing, resolveChannel } from "@/lib/domain/publishing"
 import { formatCents } from "@/lib/domain/money"
 import { CHANNEL_META, PUBLISH_MODE_META } from "@/lib/domain/status"
@@ -162,13 +162,15 @@ function ChannelCard({
       return
     }
 
+    const note = mockChannelNote(channel)
+    const outcome =
+      action === "deactivate"
+        ? "Angebot geschlossen, Bestand auf 0 gesetzt."
+        : meta.automated
+          ? `Auf ${meta.label} veröffentlicht.`
+          : `Als auf ${meta.label} inseriert vermerkt.`
     toast.success(`${label} erfolgreich`, {
-      description:
-        action === "deactivate"
-          ? "Angebot geschlossen, Bestand auf 0 gesetzt."
-          : meta.automated
-            ? `Auf ${meta.label} veröffentlicht.`
-            : `Als auf ${meta.label} inseriert vermerkt.`,
+      description: note ? `${outcome} ${note}` : outcome,
     })
   }
 

@@ -21,6 +21,11 @@ export async function runAction<T>(
   messages: {
     /** Erfolgsmeldung. Weglassen, wenn die Änderung für sich spricht. */
     success?: string
+    /**
+     * Zusatzzeile zur Erfolgsmeldung. Gedacht für Einschränkungen, die zur
+     * Aussage gehören — etwa dass ein Kanal im Demo-Betrieb nichts sendet.
+     */
+    successDescription?: string
     /** Überschrift der Fehlermeldung; die Begründung liefert das Repository. */
     failure: string
   }
@@ -40,6 +45,10 @@ export async function runAction<T>(
     return null
   }
 
-  if (messages.success) toast.success(messages.success)
+  if (messages.success) {
+    toast.success(messages.success, {
+      description: messages.successDescription,
+    })
+  }
   return result.data
 }

@@ -194,6 +194,26 @@ export function getMarketplaceAdapter(channel: Channel): MarketplaceAdapter {
   return ADAPTERS[channel]
 }
 
+/**
+ * Läuft dieser Kanal gegen einen Demo-Adapter?
+ *
+ * Die Meldung nach dem Einstellen lautete „Auf Shopify veröffentlicht" — und
+ * das stimmt im Prototyp nicht: Der Adapter erzeugt IDs, Latenz und
+ * Fehlerfälle, sendet aber nichts nach außen. Dass die Einstellungsseite das
+ * an anderer Stelle erklärt, hilft niemandem, der gerade auf „Einstellen"
+ * gedrückt hat. Die Auskunft gehört an die Stelle, an der die Behauptung
+ * aufgestellt wird.
+ */
+export function isMockChannel(channel: Channel): boolean {
+  return ADAPTERS[channel].isMock
+}
+
+/** Zusatz für Meldungen über einen Kanal, der nichts nach außen sendet. */
+export function mockChannelNote(channel: Channel): string | undefined {
+  if (!isMockChannel(channel)) return undefined
+  return `Demo-Betrieb — an ${CHANNEL_META[channel].label} wurde nichts gesendet.`
+}
+
 export const integrationAdapters = {
   shopify: shopifyAdapter,
   ebay: ebayAdapter,
@@ -1804,12 +1824,13 @@ async function runPublish(
     store().setIntegrations({ shopifyLastSyncAt: response.data.publishedAt })
   }
 
+  const demoNote = adapter.isMock ? " · Demo, nichts gesendet" : ""
   log({
     category: "KANAL",
     action: CHANNEL_META[channel].automated
       ? `${CHANNEL_META[channel].label}: veröffentlicht`
       : `${CHANNEL_META[channel].label}: als inseriert vermerkt`,
-    detail: `${number} — ${payload.title}`,
+    detail: `${number} — ${payload.title}${demoNote}`,
     unit: target.type === "UNIT" ? findUnit(target.id) : null,
     article: target.type === "ARTICLE" ? findArticle(target.id) : null,
     level: "success",
