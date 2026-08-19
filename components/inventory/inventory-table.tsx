@@ -357,7 +357,10 @@ function Th({
         type="button"
         onClick={() => onSort(sortKey)}
         className={cn(
-          "flex w-full items-center gap-1 px-2.5 py-3 transition-colors duration-fast hover:text-skope-accent",
+          // `uppercase` steht hier noch einmal, obwohl `type-label` am <th>
+          // hängt: Der Browser setzt `text-transform` an <button> zurück, die
+          // Beschriftung wäre sonst als einzige in der Tabelle klein.
+          "flex w-full items-center gap-1 px-2.5 py-3 uppercase transition-colors duration-fast hover:text-skope-accent",
           FOCUS_RING,
           align === "right" && "justify-end",
           active ? "text-skope-accent" : "text-muted-foreground/80"
