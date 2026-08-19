@@ -27,10 +27,10 @@ Erledigt heißt: behoben **und** im Commit begründet.
       Datenbank, solange das so steht.
 - [ ] **hoch** `components/stock/stocktake-view.tsx:96` — Inventur mit Lagerplatz-Filter:
       `expected()` zeigt die Menge **am Platz**, gebucht wird gegen den Gesamtbestand.
-- [ ] **hoch** `lib/data/demo-repository.ts:1154` — `removeRepair` löscht die Reparatur,
-      storniert die VERBRAUCH-Buchung des Ersatzteils aber nicht.
-- [ ] **hoch** `lib/data/demo-repository.ts:1402`, `:1291` — `sell`/`issue` prüfen den
-      Gesamtbestand, buchen den Abgang aber auf einen Lagerplatz → Negativbestand am Platz.
+- [x] **hoch** `lib/data/demo-repository.ts:1154` — `removeRepair` löscht die Reparatur,
+      storniert die VERBRAUCH-Buchung des Ersatzteils aber nicht. (4b96905)
+- [x] **hoch** `lib/data/demo-repository.ts:1402`, `:1291` — `sell`/`issue` prüfen den
+      Gesamtbestand, buchen den Abgang aber auf einen Lagerplatz → Negativbestand am Platz. (4b96905)
 - [ ] **hoch** `lib/data/demo-repository.ts:2276` — `importQuantities` sucht per MPN über
       alle Artikel, ohne Kategorie- oder `stockMode`-Filter.
 - [ ] **hoch** `lib/domain/status.ts:124` — kein Übergang *nach* AUSGESCHLACHTET; alle
@@ -39,7 +39,7 @@ Erledigt heißt: behoben **und** im Commit begründet.
       ZUGANG-Bewegung, während Verkauf und Ausschlachtung buchen → Journal summiert negativ.
 - [ ] **mittel** `lib/data/demo-repository.ts:2367` — fehlender Einkaufspreis beim
       Mengenimport wird als 0 gebucht und verwässert den Durchschnittseinstand.
-- [ ] **mittel** `lib/data/demo-repository.ts:1287` — `issue` prüft den Artikelstatus nicht.
+- [x] **mittel** `lib/data/demo-repository.ts:1287` — `issue` prüft den Artikelstatus nicht. (4b96905)
 - [ ] **mittel** `components/teardown/teardown-view.tsx:277` — kontrolliertes Wertfeld
       lässt sich nicht leeren.
 - [ ] **mittel** `lib/data/demo-repository.ts:1824` — `refreshProposals` iteriert je Artikel
@@ -55,8 +55,8 @@ Erledigt heißt: behoben **und** im Commit begründet.
 
 ## Bedienung und Barrierefreiheit
 
-- [ ] **hoch** `components/units/detail/unit-detail-view.tsx:74,90` — „Zurück zum Bestand"
-      zeigt auf `/units`, eine Route, die es nicht gibt.
+- [x] **hoch** `components/units/detail/unit-detail-view.tsx:74,90` — „Zurück zum Bestand"
+      zeigt auf `/units`, eine Route, die es nicht gibt. (13d8710)
 - [ ] **hoch** `components/stock/stocktake-view.tsx:85` — `bookAll` bucht alle
       Inventurdifferenzen unwiderruflich, ohne Zusammenfassung und ohne Rückfrage.
 - [ ] **hoch** `components/proposals/proposals-view.tsx:82` — `approveSelected` stellt
@@ -75,11 +75,10 @@ Erledigt heißt: behoben **und** im Commit begründet.
 - [ ] **mittel** `components/categories/categories-view.tsx:292`,
       `components/locations/locations-view.tsx:168`, `proposals-view.tsx:294` — Touch-Ziele
       36 px bzw. 16 px gegen die eigene Untergrenze von 44 px (`focus.ts:21`).
-- [ ] **niedrig** `app/not-found.tsx:27` — 404 verlinkt `/scooters`; der Ausweg führt zurück
+- [x] **niedrig** `app/not-found.tsx:27` — 404 verlinkt `/scooters`; der Ausweg führt zurück
       ins 404.
 
-## Design-System
-
+## Design-System (13d8710)
 - [ ] **kritisch** `components/ui/button.tsx:22-34` — Größenskala tot: 92 Aufrufstellen
       überschreiben sie.
 - [ ] **hoch** `app/globals.css:139-141` — `--motion-*`-Tokens nirgends referenziert,
