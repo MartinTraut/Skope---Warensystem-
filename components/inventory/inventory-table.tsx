@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
 
 import {
   ChannelIndicators,
@@ -12,6 +12,7 @@ import {
 import { RelativeTime } from "@/components/skope/client-time"
 import { EmptyState } from "@/components/skope/primitives"
 import { useRowNavigation } from "@/components/skope/row-link"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { articleLabel } from "@/lib/domain/article-factory"
 import { formatCents } from "@/lib/domain/money"
 import type { ArticleView } from "@/lib/domain/types"
@@ -34,18 +35,46 @@ import { cn } from "@/lib/utils"
  * Weniger Spalten statt kleinerer Schrift: Lesbarkeit ist der Grund, warum
  * die Tabelle überhaupt dort steht.
  */
+/**
+ * Spaltenschlüssel der Sortierung.
+ *
+ * Er liegt hier und nicht in der Ansicht: Die Spalten stehen in dieser Datei,
+ * und eine Sortierung, die nicht zu einer Spalte gehört, wäre am Kopf der
+ * Tabelle nicht anzeigbar.
+ */
+export type InventorySortKey =
+  | "updated"
+  | "number"
+  | "name"
+  | "category"
+  | "mode"
+  | "quantity"
+  | "cost"
+  | "price"
+  | "value"
+
+export interface InventorySort {
+  key: InventorySortKey
+  dir: "asc" | "desc"
+}
+
 export function InventoryTable({
   views,
   emptyTitle = "Keine Artikel gefunden",
   emptyDescription = "Passe die Filter an oder lege einen neuen Artikel an.",
   emptyAction,
   compact = false,
+  sort,
+  onSort,
 }: {
   views: ArticleView[]
   emptyTitle?: string
   emptyDescription?: string
   emptyAction?: React.ReactNode
   compact?: boolean
+  /** Aktuelle Sortierung — ohne sie bleiben die Spaltenköpfe unbeweglich. */
+  sort?: InventorySort
+  onSort?: (key: InventorySortKey) => void
 }) {
   if (views.length === 0) {
     return (
@@ -60,7 +89,12 @@ export function InventoryTable({
   return (
     <>
       <div className="hidden overflow-x-auto lg:block">
-        <DesktopTable views={views} compact={compact} />
+        <DesktopTable
+          views={views}
+          compact={compact}
+          sort={sort}
+          onSort={onSort}
+        />
       </div>
       <ul className="divide-y divide-skope-line lg:hidden">
         {views.map((view) => (
@@ -80,25 +114,45 @@ export function InventoryTable({
 function DesktopTable({
   views,
   compact,
+  sort,
+  onSort,
 }: {
   views: ArticleView[]
   compact: boolean
+  sort?: InventorySort
+  onSort?: (key: InventorySortKey) => void
 }) {
   const openRow = useRowNavigation()
+  const sortable = (key: InventorySortKey) =>
+    onSort ? { sortKey: key, sort, onSort } : {}
 
   return (
     <table className="w-full text-left text-sm">
       <thead className="bg-skope-accent/[0.11]">
         <tr className="border-b border-skope-accent/25">
-          <Th className="pl-4 sm:pl-5">Artikel</Th>
-          <Th>Bereich</Th>
-          <Th>Art</Th>
-          <Th align="right">Bestand</Th>
-          {!compact && <Th align="right">Ø Einstand</Th>}
-          {!compact && <Th align="right">Verkaufspreis</Th>}
-          <Th align="right">Lagerwert</Th>
+          <Th className="pl-4 sm:pl-5" {...sortable("name")}>
+            Artikel
+          </Th>
+          <Th {...sortable("category")}>Bereich</Th>
+          <Th {...sortable("mode")}>Art</Th>
+          <Th align="right" {...sortable("quantity")}>
+            Bestand
+          </Th>
+          {!compact && (
+            <Th align="right" {...sortable("cost")}>
+              Ø Einstand
+            </Th>
+          )}
+          {!compact && (
+            <Th align="right" {...sortable("price")}>
+              Verkaufspreis
+            </Th>
+          )}
+          <Th align="right" {...sortable("value")}>
+            Lagerwert
+          </Th>
           {!compact && <Th>Kanäle</Th>}
-          <Th align="right" className="pr-4 sm:pr-5">
+          <Th align="right" className="pr-4 sm:pr-5" {...sortable("updated")}>
             Geändert
           </Th>
           <Th className="w-10 pr-4 sm:pr-5">
@@ -240,25 +294,83 @@ function QuantityCell({
   )
 }
 
+/**
+ * Spaltenkopf — mit `sortKey` zugleich der Schalter für die Sortierung.
+ *
+ * Die Sortierung lag ausschließlich in einem Auswahlfeld über der Tabelle.
+ * Wer eine Spalte sortieren will, greift aber an ihren Kopf; das Auswahlfeld
+ * wurde übersehen, und die Richtung ließ sich dort überhaupt nicht drehen.
+ * Beides bleibt jetzt in Deckung: Der Kopf setzt Spalte und Richtung, das
+ * Auswahlfeld zeigt weiterhin dieselbe Sortierung an und bedient die
+ * Kartenansicht am Telefon, die keine Spaltenköpfe hat.
+ *
+ * `aria-sort` steht am `<th>`, nicht am Knopf darin — Vorleser lesen die
+ * Sortierung an der Spalte, nicht am Bedienelement.
+ */
 function Th({
   children,
   align = "left",
   className,
+  sortKey,
+  sort,
+  onSort,
 }: {
   children: React.ReactNode
   align?: "left" | "right"
   className?: string
+  sortKey?: InventorySortKey
+  sort?: InventorySort
+  onSort?: (key: InventorySortKey) => void
 }) {
+  const active = sortKey !== undefined && sort?.key === sortKey
+  const base =
+    "px-2.5 py-3 text-[11px] font-semibold tracking-[0.1em] whitespace-nowrap text-skope-accent/85 uppercase"
+
+  if (!sortKey || !onSort) {
+    return (
+      <th
+        scope="col"
+        className={cn(base, align === "right" && "text-right", className)}
+      >
+        {children}
+      </th>
+    )
+  }
+
+  const Arrow = active && sort?.dir === "asc" ? ChevronUp : ChevronDown
+
   return (
     <th
       scope="col"
-      className={cn(
-        "px-2.5 py-3 text-[11px] font-semibold tracking-[0.1em] whitespace-nowrap text-skope-accent/85 uppercase",
-        align === "right" && "text-right",
-        className
-      )}
+      aria-sort={
+        active ? (sort?.dir === "asc" ? "ascending" : "descending") : "none"
+      }
+      className={cn(base, "p-0", className)}
     >
-      {children}
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "flex w-full items-center gap-1 px-2.5 py-3 transition-colors duration-150 hover:text-skope-accent",
+          FOCUS_RING,
+          align === "right" && "justify-end",
+          active ? "text-skope-accent" : "text-skope-accent/85"
+        )}
+      >
+        {align === "right" && (
+          <Arrow
+            className={cn("size-3.5 shrink-0", !active && "opacity-0")}
+            aria-hidden
+          />
+        )}
+        {children}
+        {align !== "right" && (
+          <Arrow
+            className={cn("size-3.5 shrink-0", !active && "opacity-0")}
+            aria-hidden
+          />
+        )}
+      </button>
     </th>
   )
 }

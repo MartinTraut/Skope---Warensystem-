@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowLeft, ArrowLeftRight, Minus, Pencil, Plus, Tag } from "lucide-react"
 
 import { ConditionBadge, StockModeBadge } from "@/components/shared/badges"
+import { TabBar, type TabBadge } from "@/components/skope/tab-bar"
 import { ImageGallery } from "@/components/shared/image-gallery"
 import { EditArticleDialog } from "../edit-article-dialog"
 import {
@@ -30,7 +31,6 @@ import { useActivity, useArticleView, useHydrated } from "@/hooks/use-cockpit"
 import { repositories } from "@/lib/data/demo-repository"
 import { articleLabel } from "@/lib/domain/article-factory"
 import type { ArticleView } from "@/lib/domain/types"
-import { cn } from "@/lib/utils"
 
 type TabKey = "overview" | "stock" | "units" | "images" | "channels" | "history"
 
@@ -168,57 +168,23 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
         </div>
       </header>
 
-      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div
-          role="tablist"
-          aria-label="Bereiche"
-          className="flex w-max min-w-full gap-1 border-b border-skope-line"
-        >
-          {tabs.map((entry) => {
-            const active = tab === entry.key
-            const badge = tabBadge(entry.key, view)
-            return (
-              <button
-                key={entry.key}
-                role="tab"
-                aria-selected={active}
-                onClick={() => setTab(entry.key)}
-                className={cn(
-                  "relative flex h-11 items-center gap-2 px-3.5 text-sm whitespace-nowrap transition-colors duration-150",
-                  "focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
-                  active
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {entry.label}
-                {badge !== null && (
-                  <span
-                    className={cn(
-                      "grid h-4 min-w-4 place-items-center rounded-full px-1 text-[11px] font-medium tabular-nums",
-                      badge.tone === "error"
-                        ? "bg-state-error/15 text-state-error"
-                        : badge.tone === "warn"
-                          ? "bg-state-warn/15 text-state-warn"
-                          : "bg-surface-track text-muted-foreground"
-                    )}
-                  >
-                    {badge.value}
-                  </span>
-                )}
-                {active && (
-                  <span
-                    className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-skope-accent"
-                    aria-hidden
-                  />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      <TabBar
+        items={tabs.map((entry) => ({
+          ...entry,
+          badge: tabBadge(entry.key, view),
+        }))}
+        value={tab}
+        onChange={setTab}
+        idPrefix="article"
+      />
 
-      <div key={tab} className="animate-rise">
+      <div
+        key={tab}
+        id={`article-panel-${tab}`}
+        role="tabpanel"
+        aria-labelledby={`article-tab-${tab}`}
+        className="animate-rise"
+      >
         {tab === "overview" && <TabArticleOverview view={view} />}
         {tab === "stock" && <TabArticleStock view={view} />}
         {tab === "units" && <TabArticleUnits view={view} />}
@@ -306,27 +272,40 @@ function HistoryTab({ view }: { view: ArticleView }) {
 /* Zähler an den Reitern                                               */
 /* ------------------------------------------------------------------ */
 
-function tabBadge(
-  key: TabKey,
-  view: ArticleView
-): { value: number; tone: "error" | "warn" | "neutral" } | null {
+function tabBadge(key: TabKey, view: ArticleView): TabBadge | null {
   if (key === "stock") {
     if (view.article.stockMode !== "MENGE") return null
     if (view.stock.belowReorderLevel) {
-      return { value: view.stock.quantity, tone: "warn" }
+      return {
+        value: view.stock.quantity,
+        tone: "warn",
+        srLabel: "Stück auf Bestand, unter dem Meldebestand",
+      }
     }
-    return { value: view.stock.quantity, tone: "neutral" }
+    return {
+      value: view.stock.quantity,
+      tone: "neutral",
+      srLabel: "Stück auf Bestand",
+    }
   }
 
   if (key === "units") {
     return view.unitsInStock.length > 0
-      ? { value: view.unitsInStock.length, tone: "neutral" }
+      ? {
+          value: view.unitsInStock.length,
+          tone: "neutral",
+          srLabel: "Einzelstücke auf Bestand",
+        }
       : null
   }
 
   if (key === "images") {
     return view.article.images.length > 0
-      ? { value: view.article.images.length, tone: "neutral" }
+      ? {
+          value: view.article.images.length,
+          tone: "neutral",
+          srLabel: "Bilder",
+        }
       : null
   }
 
@@ -334,11 +313,15 @@ function tabBadge(
     const failed = view.article.listings.filter(
       (listing) => listing.status === "FEHLER"
     ).length
-    if (failed > 0) return { value: failed, tone: "error" }
+    if (failed > 0) {
+      return { value: failed, tone: "error", srLabel: "Kanäle mit Fehler" }
+    }
     const live = view.article.listings.filter(
       (listing) => listing.status === "VEROEFFENTLICHT"
     ).length
-    return live > 0 ? { value: live, tone: "neutral" } : null
+    return live > 0
+      ? { value: live, tone: "neutral", srLabel: "Kanäle veröffentlicht" }
+      : null
   }
 
   return null

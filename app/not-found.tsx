@@ -24,7 +24,7 @@ export default function NotFound() {
             Zum Dashboard
           </Link>
           <Link
-            href="/scooters"
+            href="/inventory"
             className={buttonVariants({
               variant: "outline",
               className: "h-11 px-4",

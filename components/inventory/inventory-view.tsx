@@ -2,9 +2,19 @@
 
 import { useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Plus, SlidersHorizontal, X } from "lucide-react"
+import {
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  Plus,
+  SlidersHorizontal,
+  X,
+} from "lucide-react"
 
-import { InventoryTable } from "./inventory-table"
+import {
+  InventoryTable,
+  type InventorySort,
+  type InventorySortKey,
+} from "./inventory-table"
 import { NewArticleDialog } from "./new-article-dialog"
 import { NewUnitDialog } from "@/components/units/new-unit-dialog"
 import { FOCUS_RING } from "@/components/skope/focus"
@@ -27,15 +37,36 @@ import { STOCK_MODES, type ArticleView, type StockMode } from "@/lib/domain/type
 import { STOCK_MODE_META } from "@/lib/domain/status"
 import { cn } from "@/lib/utils"
 
-type SortKey = "updated" | "number" | "quantity" | "value" | "name"
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+const SORT_OPTIONS: { value: InventorySortKey; label: string }[] = [
   { value: "updated", label: "Zuletzt geändert" },
   { value: "quantity", label: "Bestand" },
   { value: "value", label: "Lagerwert" },
+  { value: "cost", label: "Ø Einstand" },
+  { value: "price", label: "Verkaufspreis" },
   { value: "number", label: "Artikelnummer" },
   { value: "name", label: "Bezeichnung" },
+  { value: "category", label: "Bereich" },
+  { value: "mode", label: "Bestandsart" },
 ]
+
+/**
+ * Erste Richtung je Spalte.
+ *
+ * Wer auf „Bestand" klickt, will wissen, wovon am meisten da ist — nicht,
+ * welcher Artikel bei null steht. Bei Text ist es umgekehrt: A vor Z. Die
+ * zweite Berührung derselben Spalte dreht die Richtung.
+ */
+const DEFAULT_DIRECTION: Record<InventorySortKey, "asc" | "desc"> = {
+  updated: "desc",
+  number: "asc",
+  name: "asc",
+  category: "asc",
+  mode: "asc",
+  quantity: "desc",
+  cost: "desc",
+  price: "desc",
+  value: "desc",
+}
 
 /**
  * Bestandsübersicht mit Suche, Filtern und Sortierung.
@@ -61,7 +92,19 @@ export function InventoryView() {
   const [manufacturer, setManufacturer] = useState("alle")
   const [scope, setScope] = useState<string>(searchParams.get("scope") ?? "aktiv")
   const [attributeFilters, setAttributeFilters] = useState<Record<string, string>>({})
-  const [sort, setSort] = useState<SortKey>("updated")
+  const [sort, setSort] = useState<InventorySort>({
+    key: "updated",
+    dir: "desc",
+  })
+
+  /** Dieselbe Spalte erneut: Richtung drehen. Neue Spalte: Vorgabe der Spalte. */
+  function toggleSort(key: InventorySortKey) {
+    setSort((current) =>
+      current.key === key
+        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: DEFAULT_DIRECTION[key] }
+    )
+  }
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const [articleOpen, setArticleOpen] = useState(false)
@@ -189,7 +232,13 @@ export function InventoryView() {
       scope={scope}
       setScope={setScope}
       sort={sort}
-      setSort={setSort}
+      setSort={(key) => setSort({ key, dir: DEFAULT_DIRECTION[key] })}
+      toggleDirection={() =>
+        setSort((current) => ({
+          ...current,
+          dir: current.dir === "asc" ? "desc" : "asc",
+        }))
+      }
     />
   )
 
@@ -348,6 +397,8 @@ export function InventoryView() {
         ) : (
           <InventoryTable
             views={filtered}
+            sort={sort}
+            onSort={toggleSort}
             emptyTitle={
               query || activeFilters > 0 ? "Keine Treffer" : "Noch kein Bestand"
             }
@@ -403,6 +454,7 @@ function FilterControls({
   setScope,
   sort,
   setSort,
+  toggleDirection,
 }: {
   stacked?: boolean
   categoryId: string
@@ -415,8 +467,9 @@ function FilterControls({
   manufacturers: string[]
   scope: string
   setScope: (value: string) => void
-  sort: SortKey
-  setSort: (value: SortKey) => void
+  sort: InventorySort
+  setSort: (value: InventorySortKey) => void
+  toggleDirection: () => void
 }) {
   const width = stacked ? "w-full" : undefined
 
@@ -474,33 +527,78 @@ function FilterControls({
       <InlineSelect
         className={width}
         aria-label="Sortierung"
-        value={sort}
-        onChange={(event) => setSort(event.target.value as SortKey)}
+        value={sort.key}
+        onChange={(event) => setSort(event.target.value as InventorySortKey)}
         options={SORT_OPTIONS}
       />
+      <button
+        type="button"
+        onClick={() => toggleDirection()}
+        aria-label={
+          sort.dir === "asc"
+            ? "Sortierung: aufsteigend, umschalten auf absteigend"
+            : "Sortierung: absteigend, umschalten auf aufsteigend"
+        }
+        className={cn(
+          "inline-flex h-9 items-center gap-1.5 rounded-md border border-skope-line px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground",
+          FOCUS_RING
+        )}
+      >
+        {sort.dir === "asc" ? (
+          <ArrowUpNarrowWide className="size-4" aria-hidden />
+        ) : (
+          <ArrowDownWideNarrow className="size-4" aria-hidden />
+        )}
+        {sort.dir === "asc" ? "Aufsteigend" : "Absteigend"}
+      </button>
     </>
   )
 }
 
-function sortViews(views: ArticleView[], sort: SortKey): ArticleView[] {
-  const sorted = [...views]
+/**
+ * Sortiert nach Spalte und Richtung.
+ *
+ * Ein einziger Vergleich je Spalte, die Richtung dreht ihn am Ende: Zwei
+ * getrennte Zweige für auf- und absteigend liefen erfahrungsgemäß
+ * auseinander, sobald eine Spalte dazukam.
+ */
+function sortViews(views: ArticleView[], sort: InventorySort): ArticleView[] {
+  const factor = sort.dir === "asc" ? 1 : -1
+  const text = (a: string, b: string) => a.localeCompare(b, "de")
 
-  switch (sort) {
-    case "number":
-      return sorted.sort((a, b) => a.article.sku.localeCompare(b.article.sku))
-    case "name":
-      return sorted.sort((a, b) =>
-        articleLabel(a.article).localeCompare(articleLabel(b.article), "de")
-      )
-    case "quantity":
-      return sorted.sort((a, b) => b.stock.quantity - a.stock.quantity)
-    case "value":
-      return sorted.sort((a, b) => b.stock.valueCents - a.stock.valueCents)
-    default:
-      return sorted.sort(
-        (a, b) =>
-          new Date(b.article.updatedAt).getTime() -
-          new Date(a.article.updatedAt).getTime()
-      )
-  }
+  return [...views].sort((a, b) => {
+    switch (sort.key) {
+      case "number":
+        return factor * text(a.article.sku, b.article.sku)
+      case "name":
+        return factor * text(articleLabel(a.article), articleLabel(b.article))
+      case "category":
+        return factor * text(a.settings.pathLabel, b.settings.pathLabel)
+      case "mode":
+        return factor * text(a.article.stockMode, b.article.stockMode)
+      case "quantity":
+        return factor * (a.stock.quantity - b.stock.quantity)
+      case "cost":
+        return factor * (a.stock.averageCostCents - b.stock.averageCostCents)
+      case "price": {
+        // Ohne Preis heißt nicht „null Euro": Artikel ohne Verkaufspreis
+        // stehen in beiden Richtungen am Ende. Über `factor` gelöst wären sie
+        // beim Umschalten der Richtung plötzlich die teuersten.
+        const left = a.article.salePriceCents
+        const right = b.article.salePriceCents
+        if (left === null && right === null) return 0
+        if (left === null) return 1
+        if (right === null) return -1
+        return factor * (left - right)
+      }
+      case "value":
+        return factor * (a.stock.valueCents - b.stock.valueCents)
+      default:
+        return (
+          factor *
+          (new Date(a.article.updatedAt).getTime() -
+            new Date(b.article.updatedAt).getTime())
+        )
+    }
+  })
 }
