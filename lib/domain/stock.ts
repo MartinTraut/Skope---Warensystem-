@@ -241,6 +241,35 @@ export function checkAvailability(
   return null
 }
 
+/**
+ * Darf so viel von *diesem* Lagerplatz abgebucht werden?
+ *
+ * Der Gesamtbestand allein reicht als Prüfung nicht: Gebucht wird auf einen
+ * Lagerplatz, und wer zehn Stück aus der Werkstatt entnimmt, während neun im
+ * Laden und eines in der Werkstatt liegen, hat danach einen Bestand von −9 an
+ * einem Platz und +9 am anderen. Die Summe stimmt, das Regal nicht — und
+ * auffallen würde es erst bei der Inventur.
+ *
+ * Ohne Lagerplatz wird weiterhin nur gegen die Summe geprüft. Das ist kein
+ * Versehen: Eine Buchung ohne Platz sagt „irgendwo aus dem Lager", und dafür
+ * ist der Gesamtbestand die richtige Grenze.
+ */
+export function checkAvailabilityAt(
+  level: StockLevel,
+  quantity: number,
+  locationId: string | null,
+  locationLabel?: string
+): string | null {
+  const problem = checkAvailability(level, quantity)
+  if (problem) return problem
+  if (!locationId) return null
+  const available = quantityAt(level, locationId)
+  if (quantity > available) {
+    return `Auf ${locationLabel ?? "diesem Lagerplatz"} liegen nur ${available} Stück.`
+  }
+  return null
+}
+
 /** Menge an einem bestimmten Lagerplatz. */
 export function quantityAt(level: StockLevel, locationId: string | null): number {
   return level.byLocation[locationId ?? ""] ?? 0

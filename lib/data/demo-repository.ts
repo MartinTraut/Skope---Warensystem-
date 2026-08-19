@@ -50,6 +50,7 @@ import {
 import { CHANNEL_META, canTransition } from "@/lib/domain/status"
 import {
   checkAvailability,
+  checkAvailabilityAt,
   computeStockLevels,
   emptyStockLevel,
   isUnitInStock,
@@ -1186,11 +1187,54 @@ class DemoUnitRepository implements UnitRepository {
     }))
   }
 
+  /*
+    Eine gelöschte Reparatur gibt das verbaute Ersatzteil zurück ins Lager.
+
+    Bisher verschwand nur der Eintrag am Gerät, die VERBRAUCH-Buchung aus
+    `addRepair` blieb stehen: Das Teil war aus dem Regal gebucht, gehörte aber
+    zu keinem Vorgang mehr — im Bestand fehlte es, in den Kosten des Geräts
+    stand es nicht mehr. Gegengebucht wird mit dem Einstand, mit dem es
+    entnommen wurde (`partCostCents` je Stück), nicht mit dem inzwischen
+    gelaufenen Durchschnitt; sonst verschöbe das Zurücklegen den Lagerwert
+    aller übrigen Stücke.
+  */
   async removeRepair(id: string, repairId: string) {
-    return mutateUnit(id, (unit) => ({
+    const before = findUnit(id)
+    const removed = before?.repairs.find((repair) => repair.id === repairId)
+
+    const result = mutateUnit(id, (unit) => ({
       ...unit,
       repairs: unit.repairs.filter((repair) => repair.id !== repairId),
     }))
+    if (!result.ok) return result
+
+    if (removed?.partArticleId && removed.partQuantity > 0) {
+      const partArticle = findArticle(removed.partArticleId)
+      store().addMovements([
+        {
+          id: createId("mov"),
+          at: new Date().toISOString(),
+          actor: store().user.name,
+          articleId: removed.partArticleId,
+          unitId: result.data.id,
+          quantity: removed.partQuantity,
+          type: "ZUGANG",
+          unitCostCents: Math.round(removed.partCostCents / removed.partQuantity),
+          locationId: null,
+          toLocationId: null,
+          referenceId: result.data.id,
+          note: `Rücknahme aus ${result.data.unitNumber}`,
+        },
+      ])
+      log({
+        category: "BESTAND",
+        action: "Ersatzteil zurückgebucht",
+        detail: `${removed.partQuantity} × ${partArticle ? articleLabel(partArticle) : "Ersatzteil"} aus ${result.data.unitNumber} zurück ins Lager (${formatEuro(removed.partCostCents)}).`,
+        unit: result.data,
+      })
+    }
+
+    return result
   }
 
   /* Bilder */
@@ -1322,8 +1366,22 @@ class DemoStockRepository implements StockRepository {
   async issue(input: Parameters<StockRepository["issue"]>[0]) {
     const article = findArticle(input.articleId)
     if (!article) return actionFail<StockMovement>("Artikel nicht gefunden.")
+    // Dieselbe Sperre wie im Zugang: Ein Einzelstück verlässt das Lager über
+    // Verkauf oder Ausschlachtung, beide schreiben ihren eigenen Vorgang mit.
+    // Ein Mengenabgang darauf ließe Bestand und Gerätestatus auseinanderlaufen.
+    if (article.stockMode !== "MENGE") {
+      return actionFail<StockMovement>(
+        `${articleLabel(article)} wird als Einzelstück geführt. Abgang bedeutet dort: Verkauf oder Ausschlachtung.`,
+        true
+      )
+    }
 
-    const problem = checkAvailability(levelOf(input.articleId), input.quantity)
+    const problem = checkAvailabilityAt(
+      levelOf(input.articleId),
+      input.quantity,
+      input.locationId ?? null,
+      locationCode(input.locationId ?? null)
+    )
     if (problem) return actionFail<StockMovement>(problem, true)
 
     const movement = bookMovement({
@@ -1434,7 +1492,12 @@ class DemoStockRepository implements StockRepository {
     }
 
     const level = levelOf(input.articleId)
-    const problem = checkAvailability(level, input.quantity)
+    const problem = checkAvailabilityAt(
+      level,
+      input.quantity,
+      input.locationId ?? null,
+      locationCode(input.locationId ?? null)
+    )
     if (problem) return actionFail<Sale>(problem, true)
 
     const sale: Sale = {
