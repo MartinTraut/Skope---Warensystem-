@@ -120,21 +120,58 @@ export const WORKFLOW_PIPELINE: WorkflowStatus[] = [
  *
  * AUSGESCHLACHTET hat keinen Rückweg: Die Teile sind verbaut oder verkauft,
  * ein Zurücksetzen würde den Einkaufswert doppelt zählen.
+ *
+ * Der Weg *hinein* stand bisher nicht in dieser Tabelle, obwohl die
+ * Ausschlachtung den Status setzt. Ein Automat, an dem der wertrelevanteste
+ * Übergang vorbeigeht, beschreibt nicht mehr, was passiert — er bestätigt nur
+ * noch, was ohnehin erlaubt war. Deshalb steht er hier, und die Ausschlachtung
+ * fragt ihn: Aus einem archivierten Gerät entsteht kein Teilelager mehr.
  */
 export const ALLOWED_WORKFLOW_TRANSITIONS: Record<
   WorkflowStatus,
   WorkflowStatus[]
 > = {
-  EINGEGANGEN: ["IN_PRUEFUNG", "AUFBEREITUNG", "ARCHIVIERT"],
-  IN_PRUEFUNG: ["EINGEGANGEN", "AUFBEREITUNG", "VERKAUFSBEREIT", "ARCHIVIERT"],
-  AUFBEREITUNG: ["IN_PRUEFUNG", "VERKAUFSBEREIT", "ARCHIVIERT"],
-  VERKAUFSBEREIT: ["AUFBEREITUNG", "IN_PRUEFUNG", "ARCHIVIERT"],
+  EINGEGANGEN: ["IN_PRUEFUNG", "AUFBEREITUNG", "AUSGESCHLACHTET", "ARCHIVIERT"],
+  IN_PRUEFUNG: [
+    "EINGEGANGEN",
+    "AUFBEREITUNG",
+    "VERKAUFSBEREIT",
+    "AUSGESCHLACHTET",
+    "ARCHIVIERT",
+  ],
+  AUFBEREITUNG: [
+    "IN_PRUEFUNG",
+    "VERKAUFSBEREIT",
+    "AUSGESCHLACHTET",
+    "ARCHIVIERT",
+  ],
+  VERKAUFSBEREIT: [
+    "AUFBEREITUNG",
+    "IN_PRUEFUNG",
+    "AUSGESCHLACHTET",
+    "ARCHIVIERT",
+  ],
   AUSGESCHLACHTET: [],
   ARCHIVIERT: ["VERKAUFSBEREIT"],
 }
 
 export function canTransition(from: WorkflowStatus, to: WorkflowStatus) {
   return ALLOWED_WORKFLOW_TRANSITIONS[from].includes(to)
+}
+
+/**
+ * Zustände, die nur ein Vorgang setzt, nie die Statusauswahl.
+ *
+ * AUSGESCHLACHTET ohne Ausschlachtung wäre ein Gerät, dessen Einkaufswert
+ * nirgends mehr liegt: aus dem Bestand genommen, ohne dass er auf Teile
+ * verteilt wurde. Der Übergang ist erlaubt — aber nur über den Vorgang, der
+ * die Gegenbuchungen mitbringt.
+ */
+export const PROCESS_ONLY_STATUSES: WorkflowStatus[] = ["AUSGESCHLACHTET"]
+
+/** Darf dieser Übergang von Hand gewählt werden? */
+export function canTransitionManually(from: WorkflowStatus, to: WorkflowStatus) {
+  return canTransition(from, to) && !PROCESS_ONLY_STATUSES.includes(to)
 }
 
 /* ------------------------------------------------------------------ */

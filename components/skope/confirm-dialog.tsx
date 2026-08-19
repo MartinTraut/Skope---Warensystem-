@@ -19,6 +19,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Löschen",
   cancelLabel = "Abbrechen",
+  tone = "destructive",
   onConfirm,
 }: {
   open: boolean
@@ -27,6 +28,12 @@ export function ConfirmDialog({
   description: ReactNode
   confirmLabel?: string
   cancelLabel?: string
+  /**
+   * Nicht jede Rückfrage steht vor einer Vernichtung. Ein Vorgang, der nur
+   * schwer rückgängig zu machen ist (Buchen, Einstellen), wird bestätigt,
+   * aber nicht rot angemalt — sonst stumpft die Warnfarbe ab, wo sie zählt.
+   */
+  tone?: "destructive" | "default"
   onConfirm: () => Promise<void> | void
 }) {
   const [busy, setBusy] = useState(false)
@@ -58,7 +65,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant="destructive"
+            variant={tone === "destructive" ? "destructive" : "default"}
             className="h-11 px-4"
             onClick={confirm}
             disabled={busy}

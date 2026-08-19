@@ -116,6 +116,21 @@ export interface CockpitState {
 
   setIntegrations(patch: Partial<IntegrationState>): void
 
+  /**
+   * Mehrere Schreiboperationen als ein Vorgang.
+   *
+   * Ein Verkauf besteht aus Verkaufssatz, Bewegung und Statuswechsel des
+   * Geräts — drei einzelnen Schreibvorgängen. Scheitert der zweite (die
+   * Speichergrenze des Browsers ist erreicht, ein Datensatz ist zwischenzeitlich
+   * fort), blieb bisher der erste stehen: ein Verkauf ohne Abbuchung. `transact`
+   * merkt sich den Datenstand vor dem ersten Schritt und stellt ihn wieder her,
+   * wenn einer der Schritte wirft.
+   *
+   * Deckt nur synchrone Schritte ab. Was nach `await` passiert — Kanalaufrufe
+   * etwa — steht außerhalb und muss für sich selbst geradestehen.
+   */
+  transact(run: () => void): void
+
   /** Vollständiger Austausch des Datenbestands — für das Einspielen einer Sicherung. */
   replaceAll(data: Partial<PersistedState>): void
 
@@ -249,7 +264,7 @@ function freshState() {
 
 export const useCockpitStore = create<CockpitState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...freshState(),
 
       upsertCategories: (incoming) =>
@@ -351,6 +366,28 @@ export const useCockpitStore = create<CockpitState>()(
 
       setIntegrations: (patch) =>
         set((state) => ({ integrations: { ...state.integrations, ...patch } })),
+
+      transact: (run) => {
+        const before = get()
+        const snapshot = {
+          categories: before.categories,
+          locations: before.locations,
+          articles: before.articles,
+          units: before.units,
+          movements: before.movements,
+          teardowns: before.teardowns,
+          proposals: before.proposals,
+          sales: before.sales,
+          activity: before.activity,
+          importBatches: before.importBatches
+        }
+        try {
+          run()
+        } catch (error) {
+          set(snapshot)
+          throw error
+        }
+      },
 
       replaceAll: (data) => set((state) => ({ ...state, ...data })),
 

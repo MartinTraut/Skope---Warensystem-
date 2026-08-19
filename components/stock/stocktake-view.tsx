@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { ClipboardCheck } from "lucide-react"
 
+import { ConfirmDialog } from "@/components/skope/confirm-dialog"
 import { InlineSelect, SearchInput } from "@/components/skope/form"
 import {
   EmptyState,
@@ -51,6 +52,7 @@ export function StocktakeView() {
   const [counts, setCounts] = useState<Record<string, string>>({})
   const [reason, setReason] = useState("Inventur")
   const [busy, setBusy] = useState(false)
+  const [askBooking, setAskBooking] = useState(false)
 
   const targetLocation = locationId === "alle" ? null : locationId === "ohne" ? null : locationId
   const locationScoped = locationId !== "alle"
@@ -94,6 +96,7 @@ export function StocktakeView() {
           articleId: view.article.id,
           countedQuantity: counted,
           locationId: targetLocation,
+          countedAtLocation: locationScoped,
           reason,
         }),
         { failure: `Korrektur für ${view.article.sku} nicht gebucht` }
@@ -122,7 +125,7 @@ export function StocktakeView() {
           <Button
             className="h-10 gap-2 px-4"
             disabled={deviations.length === 0 || busy}
-            onClick={bookAll}
+            onClick={() => setAskBooking(true)}
           >
             <ClipboardCheck className="size-4" />
             {busy
@@ -279,6 +282,66 @@ export function StocktakeView() {
           </ul>
         )}
       </Panel>
+
+      {/*
+        Buchen ist der Punkt ohne Rückweg: Jede Differenz wird zur
+        Korrekturbuchung im Journal. Vorher steht schwarz auf weiß, wie viele
+        Stück in welche Richtung wandern und wohin gebucht wird.
+      */}
+      <ConfirmDialog
+        open={askBooking}
+        onOpenChange={setAskBooking}
+        tone="default"
+        title={`${deviations.length} Differenz${deviations.length === 1 ? "" : "en"} buchen`}
+        confirmLabel="Jetzt buchen"
+        description={
+          <div className="space-y-3">
+            <p>
+              Gebucht wird{" "}
+              {locationScoped ? (
+                <>
+                  gegen{" "}
+                  <span className="text-foreground">
+                    {locations.find((entry) => entry.id === targetLocation)?.code ??
+                      "ohne Lagerplatz"}
+                  </span>
+                </>
+              ) : (
+                <span className="text-foreground">den Gesamtbestand</span>
+              )}{" "}
+              mit dem Grund {"„"}
+              {reason.trim() || "Inventur"}
+              {"“"}. Jede Zeile
+              erscheint als Korrektur im Journal und lässt sich nicht
+              zurücknehmen, nur erneut korrigieren.
+            </p>
+            <ul className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-skope-line bg-surface-sunken p-3">
+              {deviations.map((view) => {
+                const counted = Number.parseInt(counts[view.article.id], 10)
+                const delta = counted - expected(view)
+                return (
+                  <li
+                    key={view.article.id}
+                    className="flex items-baseline justify-between gap-3 font-mono text-xs tabular-nums"
+                  >
+                    <span className="truncate text-muted-foreground">
+                      {view.article.sku}
+                    </span>
+                    <span
+                      className={cn(
+                        delta > 0 ? "text-state-ready" : "text-state-error"
+                      )}
+                    >
+                      {expected(view)} → {counted} ({delta > 0 ? `+${delta}` : delta})
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        }
+        onConfirm={bookAll}
+      />
     </div>
   )
 }

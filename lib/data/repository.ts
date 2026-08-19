@@ -218,6 +218,12 @@ export interface BookingInput {
   articleId: string
   quantity: number
   type: MovementType
+  /**
+   * Buchungszeitpunkt. Ohne Angabe: jetzt. Vorgänge mit eigenem Datum — ein
+   * rückdatierter Verkauf etwa — geben ihn mit, sonst stehen Vorgang und
+   * Buchung an verschiedenen Tagen im Journal.
+   */
+  at?: string
   unitCostCents?: number | null
   locationId?: string | null
   toLocationId?: string | null
@@ -249,11 +255,17 @@ export interface StockRepository {
   /**
    * Inventur: Zählmenge eintragen. Die Differenz wird als Korrektur mit
    * Begründung gebucht — ein stilles Überschreiben gibt es nicht.
+   *
+   * `countedAtLocation` sagt, worauf sich `countedQuantity` bezieht: auf den
+   * Bestand am angegebenen Lagerplatz (Zählliste eines Regals) oder auf den
+   * Gesamtbestand des Artikels. Ohne diese Angabe wäre ein korrekt gezähltes
+   * Regal von einer Differenz über alle Plätze nicht zu unterscheiden.
    */
   correct(input: {
     articleId: string
     countedQuantity: number
     locationId: string | null
+    countedAtLocation?: boolean
     reason: string
   }): Promise<ActionResult<StockMovement | null>>
 

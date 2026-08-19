@@ -14,7 +14,11 @@ import {
 import { useLocations } from "@/hooks/use-cockpit"
 import { repositories } from "@/lib/data/demo-repository"
 import { toDateInput } from "@/lib/domain/money"
-import { canTransition, CONDITION_META, WORKFLOW_META } from "@/lib/domain/status"
+import {
+  canTransitionManually,
+  CONDITION_META,
+  WORKFLOW_META,
+} from "@/lib/domain/status"
 import {
   CONDITIONS,
   WORKFLOW_STATUSES,
@@ -198,12 +202,14 @@ export function EditUnitDialog({
             /*
               Nur erreichbare Ziele anbieten. Vorher stand die vollständige
               Liste zur Wahl, und ein unzulässiger Sprung schlug erst beim
-              Speichern fehl.
+              Speichern fehl. „Ausgeschlachtet" fehlt hier bewusst: Diesen
+              Zustand setzt die Ausschlachtung, weil nur sie den Einkaufswert
+              auf die Teile verteilt.
             */
             options={WORKFLOW_STATUSES.filter(
               (status) =>
                 status === unit.workflowStatus ||
-                canTransition(unit.workflowStatus, status)
+                canTransitionManually(unit.workflowStatus, status)
             ).map((status) => ({
               value: status,
               label: WORKFLOW_META[status].label,

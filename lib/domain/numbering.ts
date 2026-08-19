@@ -16,9 +16,15 @@
  * in der Nummer — sonst müsste beim Umräumen umetikettiert werden.
  *
  * Im Prototyp wird die laufende Nummer aus dem vorhandenen Bestand abgeleitet.
- * In der Produktion übernimmt das eine Postgres-Sequenz je Präfix in derselben
- * Transaktion wie das INSERT; ein `MAX()+1` im Anwendungscode wäre dort falsch,
- * weil parallele Importe dieselbe Nummer ziehen könnten.
+ * Vergebene Nummern werden dabei übersprungen, auch wenn sie dem Muster nicht
+ * folgen — sonst vergibt eine von Hand eingetragene Nummer die nächste gleich
+ * ein zweites Mal.
+ *
+ * Was der Anwendungscode nicht leisten kann, ist der Gleichzeitigkeitsfall:
+ * Zwei offene Tabs lesen denselben Bestand und ziehen dieselbe Nummer. In der
+ * Produktion übernimmt das eine Postgres-Sequenz je Präfix in derselben
+ * Transaktion wie das INSERT, abgesichert durch einen UNIQUE-Index auf der
+ * Nummer; ein `MAX()+1` im Anwendungscode wäre dort falsch.
  */
 
 export function createId(prefix = "id"): string {
@@ -54,7 +60,14 @@ function highestCounter(existing: string[], pattern: RegExp): number {
 export function nextArticleSku(existing: string[], prefix: string): string {
   const clean = prefix.trim().toUpperCase() || "ART"
   const pattern = new RegExp(`^${escapePrefix(clean)}-${COUNTER}$`)
-  const next = highestCounter(existing, pattern) + 1
+  const taken = new Set(existing)
+
+  // MAX+1 allein reicht nicht: Eine von Hand vergebene oder importierte
+  // Nummer muss dem Muster nicht folgen und zählt dann beim Maximum nicht
+  // mit — die nächste „freie" Nummer wäre bereits vergeben. Deshalb wird
+  // hochgezählt, bis die Nummer wirklich frei ist.
+  let next = highestCounter(existing, pattern) + 1
+  while (taken.has(`${clean}-${String(next).padStart(4, "0")}`)) next += 1
   return `${clean}-${String(next).padStart(4, "0")}`
 }
 
@@ -93,7 +106,10 @@ export function nextUnitNumber(
     return Math.max(max, Number.parseInt(match[2], 10))
   }, 0)
 
-  return `${clean}-${year}-${String(highest + 1).padStart(4, "0")}`
+  const taken = new Set(existing)
+  let next = highest + 1
+  while (taken.has(`${clean}-${year}-${String(next).padStart(4, "0")}`)) next += 1
+  return `${clean}-${year}-${String(next).padStart(4, "0")}`
 }
 
 /** Reserviert mehrere Stücknummern am Stück — für den Import. */

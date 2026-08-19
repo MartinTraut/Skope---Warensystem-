@@ -47,13 +47,19 @@ import {
   resolveChannel,
   resolvePublishMode,
 } from "@/lib/domain/publishing"
-import { CHANNEL_META, canTransition } from "@/lib/domain/status"
+import {
+  CHANNEL_META,
+  WORKFLOW_META,
+  canTransition,
+  canTransitionManually,
+} from "@/lib/domain/status"
 import {
   checkAvailability,
   checkAvailabilityAt,
   computeStockLevels,
   emptyStockLevel,
   isUnitInStock,
+  quantityAt,
 } from "@/lib/domain/stock"
 import {
   distributeTeardownValue,
@@ -801,6 +807,32 @@ class DemoUnitRepository implements UnitRepository {
     const unit = createUnit(input, unitNumber)
     store().upsertUnits([unit])
 
+    /*
+      Auch ein Gerät kommt über eine Buchung herein.
+
+      Die Menge serialisierter Artikel zählt zwar die Geräte und nicht die
+      Bewegungen — das Journal aber soll den Weg jedes Stücks erzählen.
+      Ohne diesen Zugang stand dort nur der Abgang: Verkauf und
+      Ausschlachtung buchten, der Wareneingang nicht, und die Summe über
+      das Journal lief ins Minus.
+    */
+    store().addMovements([
+      {
+        id: createId("mov"),
+        at: unit.createdAt,
+        actor: store().user.name,
+        articleId: article.id,
+        unitId: unit.id,
+        quantity: 1,
+        type: "ZUGANG",
+        unitCostCents: unit.purchasePriceCents,
+        locationId: unit.locationId,
+        toLocationId: null,
+        referenceId: null,
+        note: `Wareneingang ${unit.unitNumber}`,
+      },
+    ])
+
     log({
       category: "ARTIKEL",
       action: "Gerät erfasst",
@@ -850,9 +882,11 @@ class DemoUnitRepository implements UnitRepository {
 
     if (unit.workflowStatus === status) return actionOk(unit)
 
-    if (!canTransition(unit.workflowStatus, status)) {
+    if (!canTransitionManually(unit.workflowStatus, status)) {
       return actionFail<ArticleUnit>(
-        `Der Wechsel von „${unit.workflowStatus}“ nach „${status}“ ist nicht vorgesehen.`,
+        canTransition(unit.workflowStatus, status)
+          ? `„${status}“ entsteht nur aus dem Vorgang selbst — bei AUSGESCHLACHTET über die Ausschlachtung, die den Einkaufswert auf die Teile verteilt.`
+          : `Der Wechsel von „${unit.workflowStatus}“ nach „${status}“ ist nicht vorgesehen.`,
         true
       )
     }
@@ -972,29 +1006,33 @@ class DemoUnitRepository implements UnitRepository {
       createdAt: new Date().toISOString(),
     }
 
-    store().addSale(sale)
-    store().updateUnit(id, (current) => ({
-      ...current,
-      saleStatus: "VERKAUFT",
-      workflowStatus: "ARCHIVIERT",
-      salePriceCents: input.salePriceCents,
-    }))
-    store().addMovements([
-      {
-        id: createId("mov"),
-        at: input.soldAt,
-        actor: store().user.name,
-        articleId: article.id,
-        unitId: unit.id,
-        quantity: -1,
-        type: "VERKAUF",
-        unitCostCents: null,
-        locationId: unit.locationId,
-        toLocationId: null,
-        referenceId: sale.id,
-        note: `Verkauf ${unit.unitNumber}`,
-      },
-    ])
+    // Verkaufssatz, Statuswechsel und Abbuchung gehören zusammen: Ein Verkauf
+    // ohne Abbuchung wäre Umsatz auf Ware, die noch im Lagerwert steht.
+    store().transact(() => {
+      store().addSale(sale)
+      store().updateUnit(id, (current) => ({
+        ...current,
+        saleStatus: "VERKAUFT",
+        workflowStatus: "ARCHIVIERT",
+        salePriceCents: input.salePriceCents,
+      }))
+      store().addMovements([
+        {
+          id: createId("mov"),
+          at: input.soldAt,
+          actor: store().user.name,
+          articleId: article.id,
+          unitId: unit.id,
+          quantity: -1,
+          type: "VERKAUF",
+          unitCostCents: null,
+          locationId: unit.locationId,
+          toLocationId: null,
+          referenceId: sale.id,
+          note: `Verkauf ${unit.unitNumber}`,
+        },
+      ])
+    })
 
     log({
       category: "VERKAUF",
@@ -1327,7 +1365,7 @@ function describeUnitChanges(before: ArticleUnit, after: ArticleUnit): string {
 function bookMovement(input: BookingInput): StockMovement {
   const movement: StockMovement = {
     id: createId("mov"),
-    at: new Date().toISOString(),
+    at: input.at ?? new Date().toISOString(),
     actor: store().user.name,
     articleId: input.articleId,
     unitId: null,
@@ -1439,7 +1477,19 @@ class DemoStockRepository implements StockRepository {
     }
 
     const level = levelOf(input.articleId)
-    const difference = input.countedQuantity - level.quantity
+    /*
+      Gezählt wird da, wo man steht.
+
+      Wer die Inventur auf einen Lagerplatz einschränkt, zählt das Regal vor
+      sich — nicht den Gesamtbestand. Verglichen wurde bisher trotzdem gegen
+      die Summe über alle Plätze: Ein korrekt gezähltes Regal erzeugte dann
+      eine Differenz in Höhe des Bestands aller übrigen Plätze und die
+      Korrektur buchte diesen Bestand weg.
+    */
+    const base = input.countedAtLocation
+      ? quantityAt(level, input.locationId)
+      : level.quantity
+    const difference = input.countedQuantity - base
     if (difference === 0) {
       // Keine Abweichung: keine Buchung. Eine Nullbuchung im Journal wäre
       // Rauschen, das echte Korrekturen schwerer auffindbar macht.
@@ -1460,7 +1510,9 @@ class DemoStockRepository implements StockRepository {
     log({
       category: "BESTAND",
       action: "Inventurkorrektur",
-      detail: `${articleLabel(article)}: ${level.quantity} → ${input.countedQuantity} (${difference > 0 ? "+" : ""}${difference}). Grund: ${input.reason}`,
+      detail:
+        `${articleLabel(article)}${input.countedAtLocation ? ` auf ${locationCode(input.locationId)}` : ""}: ` +
+        `${base} → ${input.countedQuantity} (${difference > 0 ? "+" : ""}${difference}). Grund: ${input.reason}`,
       article,
       level: "warning",
     })
@@ -1551,14 +1603,20 @@ class DemoStockRepository implements StockRepository {
       createdAt: new Date().toISOString(),
     }
 
-    store().addSale(sale)
-    bookMovement({
-      articleId: article.id,
-      quantity: -input.quantity,
-      type: "VERKAUF",
-      locationId: input.locationId,
-      referenceId: sale.id,
-      note: `Verkauf ${article.sku}`,
+    store().transact(() => {
+      store().addSale(sale)
+      bookMovement({
+        articleId: article.id,
+        quantity: -input.quantity,
+        type: "VERKAUF",
+        // Mit dem Verkaufsdatum, nicht mit dem Erfassungsdatum: Ein am Montag
+        // nachgetragener Freitagsverkauf gehört im Journal an den Freitag,
+        // sonst weisen Umsatz und Bestandsverlauf auf verschiedene Tage.
+        at: input.soldAt,
+        locationId: input.locationId,
+        referenceId: sale.id,
+        note: `Verkauf ${article.sku}`,
+      })
     })
 
     log({
@@ -1642,6 +1700,19 @@ class DemoTeardownRepository implements TeardownRepository {
       }
     }
 
+    /*
+      Der Statusautomat entscheidet, ob dieses Gerät überhaupt zerlegt werden
+      darf. Bisher schrieb die Ausschlachtung den Endzustand direkt in das
+      Gerät — auch bei einem längst archivierten oder verkauften Stück, dessen
+      Einkaufswert dann ein zweites Mal verteilt worden wäre.
+    */
+    if (!canTransition(unit.workflowStatus, "AUSGESCHLACHTET")) {
+      return actionFail<Teardown>(
+        `${unit.unitNumber} ist ${WORKFLOW_META[unit.workflowStatus].label.toLowerCase()} und kann nicht zerlegt werden.`,
+        true
+      )
+    }
+
     const now = new Date().toISOString()
     const teardown: Teardown = {
       id: createId("tdn"),
@@ -1677,14 +1748,18 @@ class DemoTeardownRepository implements TeardownRepository {
         note: `Aus ${unit.unitNumber}`,
       }))
 
-    store().addTeardown(teardown)
-    store().addMovements(movements)
-    store().updateUnit(unit.id, (current) => ({
-      ...current,
-      workflowStatus: "AUSGESCHLACHTET",
-      teardownId: teardown.id,
-      locationId: null,
-    }))
+    // Spender und Teile in einem Zug: Ein Gerät, das aus dem Bestand fällt,
+    // ohne dass die Teile ankommen, vernichtet seinen Einkaufswert.
+    store().transact(() => {
+      store().addTeardown(teardown)
+      store().addMovements(movements)
+      store().updateUnit(unit.id, (current) => ({
+        ...current,
+        workflowStatus: "AUSGESCHLACHTET",
+        teardownId: teardown.id,
+        locationId: null,
+      }))
+    })
 
     const pieces = lines.reduce((sum, line) => sum + Math.max(0, line.quantity), 0)
     log({
@@ -1790,13 +1865,20 @@ async function runPublish(
   const number = targetNumber(target)
 
   if (!response.ok) {
+    /*
+      Der Fehlerpfad darf nicht selbst scheitern.
+
+      Der Zählerstand wurde hier über `findUnit(...)!` geholt: Wird der
+      Datensatz während des Kanalaufrufs gelöscht, warf ausgerechnet die
+      Fehlerbehandlung — und der Kanalfehler, um den es ging, kam nie beim
+      Aufrufer an. Ohne Datensatz gibt es keinen Vorlauf, also null.
+    */
+    const owner =
+      target.type === "UNIT" ? findUnit(target.id) : findArticle(target.id)
     patchListing(target, channel, {
       status: "FEHLER",
       lastError: response.error.message,
-      retryCount:
-        (target.type === "UNIT"
-          ? getListingOf(findUnit(target.id)!, channel)?.retryCount
-          : getListingOf(findArticle(target.id)!, channel)?.retryCount) ?? 0,
+      retryCount: (owner ? getListingOf(owner, channel)?.retryCount : 0) ?? 0,
     })
     log({
       category: "KANAL",
@@ -1911,6 +1993,21 @@ class DemoPublishingRepository implements PublishingRepository {
       decided.map((proposal) => `${proposal.targetId}:${proposal.channel}`)
     )
 
+    /*
+      Einmal nach Artikel gruppieren statt je Artikel über alle Geräte.
+
+      Die Schleife lief vorher für jeden Artikel durch die gesamte
+      Geräteliste — bei tausend Artikeln und tausend Geräten sind das eine
+      Million Durchläufe für eine Ansicht, die beim Öffnen der Freigabeliste
+      entsteht.
+    */
+    const unitsByArticle = new Map<string, ArticleUnit[]>()
+    for (const unit of state.units) {
+      const list = unitsByArticle.get(unit.articleId)
+      if (list) list.push(unit)
+      else unitsByArticle.set(unit.articleId, [unit])
+    }
+
     const fresh: PublicationProposal[] = []
     let autoPublished = 0
 
@@ -1943,8 +2040,7 @@ class DemoPublishingRepository implements PublishingRepository {
         continue
       }
 
-      for (const unit of state.units) {
-        if (unit.articleId !== article.id) continue
+      for (const unit of unitsByArticle.get(article.id) ?? []) {
         if (!isUnitInStock(unit)) continue
         if (unit.saleStatus !== "VERFUEGBAR") continue
         const listing = getListingOf(unit, channel)
@@ -2208,11 +2304,7 @@ class DemoSalesRepository implements SalesRepository {
     const article = findArticle(sale.articleId)
     const now = new Date().toISOString()
 
-    store().patchSale(saleId, {
-      cancelledAt: now,
-      cancelReason: input.reason.trim(),
-      cancelRestocked: input.restock,
-    })
+    const restockMovements: StockMovement[] = []
 
     /*
       Gegenbuchung statt Löschen der ursprünglichen Bewegung.
@@ -2222,7 +2314,7 @@ class DemoSalesRepository implements SalesRepository {
       erklären, warum die Zahlen einmal anders aussahen.
     */
     if (input.restock) {
-      store().addMovements([
+      restockMovements.push(
         {
           id: createId("mov"),
           at: now,
@@ -2242,22 +2334,33 @@ class DemoSalesRepository implements SalesRepository {
           toLocationId: null,
           referenceId: sale.id,
           note: `Storno Verkauf ${sale.itemNumber}: ${input.reason.trim()}`,
-        },
-      ])
+        }
+      )
     }
 
-    // Einzelstücke kommen als Gerät zurück, nicht als Menge: Der Bestand
-    // serialisierter Artikel zählt die Geräte, nicht die Buchungen.
-    if (sale.unitId) {
-      const unit = findUnit(sale.unitId)
-      if (unit) {
+    const returningUnit = sale.unitId ? findUnit(sale.unitId) : undefined
+
+    // Stornovermerk, Gegenbuchung und Rücknahme des Geräts in einem Zug: Ein
+    // stornierter Verkauf, dessen Ware nicht zurückkommt, fehlt an beiden
+    // Enden — im Umsatz und im Bestand.
+    store().transact(() => {
+      store().patchSale(saleId, {
+        cancelledAt: now,
+        cancelReason: input.reason.trim(),
+        cancelRestocked: input.restock,
+      })
+      if (restockMovements.length > 0) store().addMovements(restockMovements)
+
+      // Einzelstücke kommen als Gerät zurück, nicht als Menge: Der Bestand
+      // serialisierter Artikel zählt die Geräte, nicht die Buchungen.
+      if (sale.unitId && returningUnit) {
         store().updateUnit(sale.unitId, (current) => ({
           ...current,
           saleStatus: "VERFUEGBAR",
           workflowStatus: input.restock ? "VERKAUFSBEREIT" : "ARCHIVIERT",
         }))
       }
-    }
+    })
 
     log({
       category: "VERKAUF",
@@ -2381,6 +2484,8 @@ function importUnits(
 
   const newArticles: Article[] = []
   const newUnits: ArticleUnit[] = []
+  const movements: StockMovement[] = []
+  const importedAt = new Date().toISOString()
 
   rows.forEach((row, index) => {
     const rowNumber = index + 1
@@ -2436,9 +2541,8 @@ function importUnits(
     numberPool.push(unitNumber)
     seenSerials.add(serial)
 
-    newUnits.push(
-      createUnit(
-        {
+    const unit = createUnit(
+      {
           articleId: article.id,
           serialNumber: row.serialNumber,
           variant: row.variant,
@@ -2449,15 +2553,33 @@ function importUnits(
           salePriceCents: row.salePriceCents ?? null,
           purchaseDate: row.purchaseDate,
           notes: row.notes,
-          attributes: row.attributes,
-        },
-        unitNumber
-      )
+        attributes: row.attributes,
+      },
+      unitNumber
     )
+    newUnits.push(unit)
+
+    // Jedes eingelesene Gerät kommt mit seinem Zugang ins Journal — wie das
+    // von Hand erfasste auch.
+    movements.push({
+      id: createId("mov"),
+      at: importedAt,
+      actor: state.user.name,
+      articleId: article.id,
+      unitId: unit.id,
+      quantity: 1,
+      type: "ZUGANG",
+      unitCostCents: unit.purchasePriceCents,
+      locationId: unit.locationId,
+      toLocationId: null,
+      referenceId: null,
+      note: `Import ${unit.unitNumber}`,
+    })
   })
 
   if (newArticles.length > 0) store().upsertArticles(newArticles)
   if (newUnits.length > 0) store().upsertUnits(newUnits)
+  if (movements.length > 0) store().addMovements(movements)
 
   return { imported: newUnits.length }
 }
@@ -2479,14 +2601,30 @@ function importQuantities(
   const settings = resolveCategorySettings(state.categories, categoryId)
   const skuPool = state.articles.map((article) => article.sku)
 
+  /*
+    Die Teilenummer ist nur innerhalb ihres Bereichs eindeutig.
+
+    Gesucht wurde bisher über den gesamten Bestand: Eine MPN, die zufällig
+    auch an einem Gerät oder in einem anderen Bereich steht, zog den Zugang
+    auf den falschen Artikel — im schlimmsten Fall auf ein serialisiertes
+    Modell, dessen Menge aus den Geräten kommt und die Buchung nie zeigt.
+  */
   const byMpn = new Map(
     state.articles
-      .filter((article) => article.mpn)
+      .filter(
+        (article) =>
+          article.mpn &&
+          article.categoryId === categoryId &&
+          article.stockMode === "MENGE"
+      )
       .map((article) => [normalizeReference(article.mpn), article])
   )
   const byName = new Map(
     state.articles
-      .filter((article) => article.categoryId === categoryId)
+      .filter(
+        (article) =>
+          article.categoryId === categoryId && article.stockMode === "MENGE"
+      )
       .map((article) => [
         `${article.manufacturer.toLowerCase()}|${article.name.toLowerCase()}`,
         article,
@@ -2562,6 +2700,23 @@ function importQuantities(
       newArticles.push(article)
     }
 
+    /*
+      Kein Preis ist nicht dasselbe wie Preis null.
+
+      Ein als 0 gebuchter Zugang zieht den Durchschnittseinstand des Artikels
+      nach unten und lässt jede spätere Marge zu gut aussehen. `null` heißt
+      im Bewertungslauf: Diese Menge übernimmt den bisherigen Durchschnitt.
+    */
+    if (row.purchasePriceCents === undefined || row.purchasePriceCents === null) {
+      issues.push({
+        row: rowNumber,
+        reference: row.mpn ?? name,
+        reason:
+          "Ohne Einkaufspreis gebucht — die Menge übernimmt den bisherigen Durchschnittseinstand.",
+        severity: "warning",
+      })
+    }
+
     movements.push({
       id: createId("mov"),
       at: now,
@@ -2570,7 +2725,7 @@ function importQuantities(
       unitId: null,
       quantity,
       type: "ZUGANG",
-      unitCostCents: row.purchasePriceCents ?? 0,
+      unitCostCents: row.purchasePriceCents ?? null,
       locationId: row.location
         ? (locationsByCode.get(row.location.trim().toUpperCase()) ?? null)
         : null,

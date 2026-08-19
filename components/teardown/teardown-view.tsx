@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, type InputHTMLAttributes } from "react"
 import Link from "next/link"
 import { Plus, Recycle, Trash2, Wrench } from "lucide-react"
 
@@ -43,6 +43,43 @@ import {
   type TeardownLine,
 } from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
+
+/**
+ * Zahlenfeld, das sich leeren lässt.
+ *
+ * Ein kontrolliertes Feld, das jede Eingabe sofort in eine Zahl übersetzt,
+ * schreibt beim Löschen des letzten Zeichens eine 0 zurück und stellt sie
+ * sofort wieder in das Feld. Der Wert ließ sich damit nicht korrigieren,
+ * sondern nur überschreiben — und wer „1200" durch „950" ersetzen wollte,
+ * kämpfte gegen das eigene Formular. Solange getippt wird, gilt der getippte
+ * Text; erst beim Verlassen zeigt das Feld wieder den gebuchten Wert.
+ */
+function DraftNumberInput({
+  value,
+  format,
+  parse,
+  onCommit,
+  ...props
+}: {
+  value: number | null
+  format: (value: number | null) => string
+  parse: (text: string) => number | null
+  onCommit: (value: number | null) => void
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  const [draft, setDraft] = useState<string | null>(null)
+
+  return (
+    <input
+      {...props}
+      value={draft ?? format(value)}
+      onChange={(event) => {
+        setDraft(event.target.value)
+        onCommit(parse(event.target.value))
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  )
+}
 
 /**
  * Ausschlachtung: ein Spendergerät in Ersatzteile zerlegen.
@@ -255,43 +292,46 @@ export function TeardownView() {
                             }
                             options={partOptions}
                           />
-                          <input
+                          <DraftNumberInput
                             type="number"
                             min={1}
                             inputMode="numeric"
                             aria-label="Menge"
                             className="h-10 rounded-lg border border-skope-line bg-surface-raised px-2.5 text-right font-mono text-sm tabular-nums text-foreground focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 focus:outline-none"
                             value={line.quantity}
-                            onChange={(event) =>
-                              updateLine(line.id, {
-                                quantity: Number.parseInt(event.target.value, 10) || 0,
-                              })
+                            format={(quantity) => (quantity === null ? "" : String(quantity))}
+                            parse={(text) => {
+                              const parsed = Number.parseInt(text, 10)
+                              return Number.isFinite(parsed) ? parsed : null
+                            }}
+                            onCommit={(quantity) =>
+                              updateLine(line.id, { quantity: quantity ?? 0 })
                             }
                           />
                           {distribution === "MANUELL" ? (
-                            <input
+                            <DraftNumberInput
                               aria-label="Einstandswert je Stück"
                               inputMode="decimal"
                               placeholder="Einstand je Stück"
                               className="h-10 rounded-lg border border-skope-line bg-surface-raised px-2.5 text-right font-mono text-sm tabular-nums text-foreground focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 focus:outline-none"
-                              value={centsToInput(line.valueShareCents)}
-                              onChange={(event) =>
-                                updateLine(line.id, {
-                                  valueShareCents: parseCents(event.target.value) ?? 0,
-                                })
+                              value={line.valueShareCents}
+                              format={centsToInput}
+                              parse={parseCents}
+                              onCommit={(cents) =>
+                                updateLine(line.id, { valueShareCents: cents ?? 0 })
                               }
                             />
                           ) : (
-                            <input
+                            <DraftNumberInput
                               aria-label="Geschätzter Marktwert je Stück"
                               inputMode="decimal"
                               placeholder="Marktwert je Stück"
                               className="h-10 rounded-lg border border-skope-line bg-surface-raised px-2.5 text-right font-mono text-sm tabular-nums text-foreground focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 focus:outline-none"
-                              value={centsToInput(line.marketValueCents)}
-                              onChange={(event) =>
-                                updateLine(line.id, {
-                                  marketValueCents: parseCents(event.target.value),
-                                })
+                              value={line.marketValueCents}
+                              format={centsToInput}
+                              parse={parseCents}
+                              onCommit={(cents) =>
+                                updateLine(line.id, { marketValueCents: cents })
                               }
                             />
                           )}
