@@ -128,12 +128,11 @@ export function EditArticleDialog({
         <>
           <Button
             variant="outline"
-            className="h-10 px-4"
             onClick={() => onOpenChange(false)}
           >
             Abbrechen
           </Button>
-          <Button className="h-10 px-4" onClick={save} disabled={saving}>
+          <Button onClick={save} disabled={saving}>
             {saving ? "Wird gespeichert …" : "Speichern"}
           </Button>
         </>

@@ -520,7 +520,7 @@ export function RevenueChart() {
                         <p className="flex justify-center">
                           <span
                             className={cn(
-                              "rounded-md px-0.5 py-0.5 text-center text-[11px] font-medium tabular-nums transition-colors sm:px-1.5 sm:text-xs",
+                              "rounded-md px-0.5 py-0.5 text-center type-micro font-medium transition-colors sm:px-1.5 sm:text-xs",
                               raw === 0
                                 ? "text-muted-foreground"
                                 : month.isCurrent
@@ -534,7 +534,7 @@ export function RevenueChart() {
                         <div
                           className={cn(
                             "animate-bar-rise relative w-full overflow-hidden rounded-t-md rounded-b-sm bg-card",
-                            "ring-inset transition-shadow duration-200",
+                            "ring-inset transition-shadow duration-fast",
                             /*
                               Die Umrandung trägt die Umsatzfarbe: Die Säule
                               als Ganzes *ist* der Umsatz. Vorher war der Rand
@@ -542,9 +542,16 @@ export function RevenueChart() {
                               Margenfläche ihre eigene Farbe bekam, gab es im
                               Balken kein Umsatzmerkmal mehr.
                             */
+                            /*
+                              Der laufende Monat unterscheidet sich über die
+                              Stärke der Umrandung, nicht über einen farbigen
+                              Schein: Ein Leuchten um ein Element führt das
+                              System nirgends sonst, und der laufende Monat
+                              ist kein Alarm, sondern eine Einordnung.
+                            */
                             month.isCurrent
-                              ? "ring-2 ring-skope-accent/70 shadow-[0_0_24px_-6px_var(--skope-accent)]"
-                              : "ring-1 ring-skope-accent/45 group-hover:ring-skope-accent/70 group-hover:shadow-[0_0_22px_-8px_var(--skope-accent)]"
+                              ? "ring-2 ring-skope-accent/70"
+                              : "ring-1 ring-skope-accent/45 group-hover:ring-skope-accent/70"
                           )}
                           style={{
                             height: `${Math.max((month.revenueCents / moneyScale.max || 0) * 100, month.revenueCents === 0 ? 0 : 2)}%`
@@ -579,7 +586,7 @@ export function RevenueChart() {
                           auseinanderzuhalten sein.
                         */}
                         <div
-                          className="absolute inset-x-0 top-0 transition-[height] duration-300 ease-out"
+                          className="absolute inset-x-0 top-0 transition-[height] duration-base ease-out"
                           style={{
                             height: `${marginShare}%`,
                             backgroundImage: `linear-gradient(to bottom, var(--state-live), color-mix(in srgb, var(--state-live) ${month.isCurrent ? 78 : 70}%, #000))`
@@ -795,7 +802,7 @@ function MeasureBar({
       <div
         className={cn(
           "animate-bar-rise absolute inset-x-0 overflow-hidden",
-          "ring-1 ring-white/[0.05] ring-inset transition-shadow duration-200",
+          "ring-1 ring-white/[0.05] ring-inset transition-shadow duration-fast",
           negative ? "rounded-t-sm rounded-b-md" : "rounded-t-md rounded-b-sm"
         )}
         style={{
@@ -821,7 +828,7 @@ function MeasureBar({
       {valueLabel && (
         <span
           className={cn(
-            "absolute left-1/2 -translate-x-1/2 rounded-md px-0.5 py-0.5 text-center text-[11px] font-medium tabular-nums whitespace-nowrap sm:px-1.5 sm:text-xs",
+            "absolute left-1/2 -translate-x-1/2 rounded-md px-0.5 py-0.5 text-center type-micro font-medium whitespace-nowrap sm:px-1.5 sm:text-xs",
             value === 0 && "text-muted-foreground",
             value !== 0 && !highlighted && "text-foreground/90"
           )}
@@ -1390,7 +1397,7 @@ export function CapitalChart() {
               <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-track ring-1 ring-white/[0.04] ring-inset">
                 <div
                   className={cn(
-                    "relative h-full rounded-full transition-[width] duration-500 ease-out",
+                    "relative h-full rounded-full transition-[width] duration-base ease-out",
                     STAGE_COLOR[stage.key] ?? "bg-state-neutral"
                   )}
                   style={{
@@ -1513,7 +1520,7 @@ function ChartGrid({
           {ticks?.[index] && (
             <span
               className={cn(
-                "absolute left-0 -translate-y-1/2 pr-1.5 text-right text-[11px] tabular-nums text-muted-foreground/75 sm:pr-2 sm:text-xs",
+                "absolute left-0 -translate-y-1/2 pr-1.5 text-right type-micro text-muted-foreground/75 sm:pr-2 sm:text-xs",
                 AXIS_WIDTH
               )}
               style={{ top: `${offset}%` }}
@@ -1549,7 +1556,7 @@ function ShareBar({
             Farben, die sonst ineinanderlaufen.
           */
           className={cn(
-            "relative transition-[width] duration-500 ease-out",
+            "relative transition-[width] duration-base ease-out",
             item.color
           )}
           style={{ width: `${item.share * 100}%` }}

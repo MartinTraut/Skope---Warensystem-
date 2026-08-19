@@ -67,14 +67,12 @@ export function CancelSaleDialog({
         <>
           <Button
             variant="outline"
-            className="h-10 px-4"
             onClick={() => onOpenChange(false)}
           >
             Abbrechen
           </Button>
           <Button
             variant="destructive"
-            className="h-10 px-4"
             onClick={submit}
             disabled={busy}
           >
@@ -125,7 +123,7 @@ export function CancelSaleButton({ sale }: { sale: Sale }) {
     <>
       <Button
         variant="outline"
-        className="h-8 gap-1.5 px-2.5 text-xs"
+        size="xs"
         onClick={(event) => {
           // Die Zeile selbst navigiert zum Datenblatt.
           event.stopPropagation()

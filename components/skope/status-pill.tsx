@@ -65,7 +65,15 @@ export function StatusPill({
       title={title}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
-        size === "sm" ? "px-2 py-0.5 type-caption" : "px-2.5 py-1 text-xs",
+        /*
+          Beide Größen tragen dieselbe Schriftgröße: `type-caption` und
+          `text-xs` sind in dieser Skala beide 13 px — die Größenwahl war
+          typografisch wirkungslos und versprach einen Unterschied, den es
+          nicht gab. Unterschieden wird über die Fläche, und das genügt: Eine
+          Pille in der Tabellenzeile darf enger sitzen als eine im Seitenkopf.
+        */
+        "text-xs",
+        size === "sm" ? "gap-1 px-2 py-0.5" : "px-2.5 py-1",
         TONE_CLASSES[tone],
         className
       )}

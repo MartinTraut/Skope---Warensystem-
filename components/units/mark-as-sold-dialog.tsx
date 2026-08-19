@@ -168,12 +168,11 @@ export function MarkAsSoldDialog({
         <>
           <Button
             variant="outline"
-            className="h-10 px-4"
             onClick={() => onOpenChange(false)}
           >
             Abbrechen
           </Button>
-          <Button className="h-10 px-4" onClick={handleSubmit} disabled={saving}>
+          <Button onClick={handleSubmit} disabled={saving}>
             {saving ? "Wird erfasst …" : "Verkauf erfassen"}
           </Button>
         </>

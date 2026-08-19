@@ -65,11 +65,10 @@ function Footer({
 }) {
   return (
     <>
-      <Button variant="outline" className="h-10 px-4" onClick={onCancel}>
+      <Button variant="outline"  onClick={onCancel}>
         Abbrechen
       </Button>
       <Button
-        className="h-10 px-4"
         onClick={onSubmit}
         disabled={busy || disabled}
       >

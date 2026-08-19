@@ -98,7 +98,7 @@ export function LocationsView() {
         title="Lagerplätze"
         description="Regale, Fächer und Kisten. Der Platz hängt an der Buchung — Umlagern ändert keine Artikelnummer."
         actions={
-          <Button className="h-10 gap-2 px-4" onClick={() => setCreating(true)}>
+          <Button onClick={() => setCreating(true)}>
             <Plus className="size-4" />
             Lagerplatz anlegen
           </Button>
@@ -133,7 +133,7 @@ export function LocationsView() {
             title="Noch kein Lagerplatz"
             description="Lege die Plätze so an, wie sie im Lager beschriftet sind — A-01, Regal 3, Palette Süd."
             action={
-              <Button className="h-10 px-4" onClick={() => setCreating(true)}>
+              <Button onClick={() => setCreating(true)}>
                 Ersten Lagerplatz anlegen
               </Button>
             }
@@ -159,7 +159,8 @@ export function LocationsView() {
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
-                        className={cn("size-9 p-0", TOUCH_EXTEND)}
+                        size="icon-sm"
+                        className={TOUCH_EXTEND}
                         aria-label="Lagerplatz bearbeiten"
                         onClick={() => setEditing(location)}
                       >
@@ -167,7 +168,8 @@ export function LocationsView() {
                       </Button>
                       <Button
                         variant="ghost"
-                        className={cn("size-9 p-0 text-muted-foreground hover:text-state-error", TOUCH_EXTEND)}
+                        size="icon-sm"
+                        className={cn("text-muted-foreground hover:text-state-error", TOUCH_EXTEND)}
                         aria-label="Lagerplatz löschen"
                         onClick={() => setRemoving(location)}
                       >
@@ -331,12 +333,11 @@ function LocationDialog({
         <>
           <Button
             variant="outline"
-            className="h-10 px-4"
             onClick={() => onOpenChange(false)}
           >
             Abbrechen
           </Button>
-          <Button className="h-10 px-4" onClick={save} disabled={saving}>
+          <Button onClick={save} disabled={saving}>
             {saving ? "Wird gespeichert …" : "Speichern"}
           </Button>
         </>

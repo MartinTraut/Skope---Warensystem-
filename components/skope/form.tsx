@@ -14,10 +14,15 @@ import { cn } from "@/lib/utils"
  * mit 44 px durchgängig groß genug.
  */
 
+/*
+  Eingabefelder liegen tiefer als ihr Grund — `surface-input` ist die einzige
+  Flächenstufe, die dunkelt statt aufzuhellen. Der Wert stand hier als Hex,
+  in fünf weiteren Dateien noch einmal; jetzt steht er im Design-System.
+*/
 const CONTROL_BASE =
-  "w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm text-foreground " +
-  "transition-colors duration-150 outline-none placeholder:text-muted-foreground/70 " +
-  "hover:border-[#353941] focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 " +
+  "w-full rounded-lg border border-skope-line-strong bg-surface-input px-3 text-sm text-foreground " +
+  "transition-colors duration-fast outline-none placeholder:text-muted-foreground/70 " +
+  "hover:border-skope-line-hover focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 " +
   "disabled:cursor-not-allowed disabled:opacity-50"
 
 const CONTROL_HEIGHT = "h-11"
@@ -408,7 +413,7 @@ export function ToggleRow({
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        "flex w-full items-center justify-between gap-4 rounded-lg border border-skope-line bg-surface-sunken px-3.5 py-3 text-left transition-colors duration-150",
+        "flex w-full items-center justify-between gap-4 rounded-lg border border-skope-line bg-surface-sunken px-3.5 py-3 text-left transition-colors duration-fast",
         "hover:border-skope-line-strong hover:bg-surface-raised",
         "focus-visible:border-skope-accent/50 focus-visible:ring-3 focus-visible:ring-skope-accent/15 focus-visible:outline-none",
         disabled && "cursor-not-allowed opacity-50",
@@ -425,14 +430,14 @@ export function ToggleRow({
       </span>
       <span
         className={cn(
-          "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200",
+          "relative h-6 w-10 shrink-0 rounded-full transition-colors duration-fast",
           checked ? "bg-skope-accent" : "bg-[#2a2d33]"
         )}
         aria-hidden
       >
         <span
           className={cn(
-            "absolute top-1 size-4 rounded-full bg-[#0b0c0e] transition-transform duration-200",
+            "absolute top-1 size-4 rounded-full bg-surface-input transition-transform duration-fast",
             checked ? "translate-x-5" : "translate-x-1"
           )}
         />

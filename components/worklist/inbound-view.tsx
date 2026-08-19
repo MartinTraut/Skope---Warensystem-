@@ -82,13 +82,12 @@ export function InboundView() {
             </Link>
             <Button
               variant="outline"
-              className="h-10 gap-2 px-4"
               onClick={() => setArticleOpen(true)}
             >
               <Plus className="size-4" />
               Artikel anlegen
             </Button>
-            <Button className="h-10 gap-2 px-4" onClick={() => setUnitOpen(true)}>
+            <Button onClick={() => setUnitOpen(true)}>
               <Plus className="size-4" />
               Gerät erfassen
             </Button>
@@ -155,7 +154,6 @@ export function InboundView() {
                 }
                 action={
                   <Button
-                    className="h-10 px-3.5"
                     disabled={busy === unit.id}
                     onClick={() => startInspection(unit.id, unit.unitNumber)}
                   >

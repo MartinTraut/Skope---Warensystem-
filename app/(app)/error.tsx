@@ -45,7 +45,7 @@ export default function AppError({
         </pre>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button className="h-11 gap-2 px-4" onClick={reset}>
+          <Button size="lg" onClick={reset}>
             <RotateCcw className="size-4" />
             Erneut versuchen
           </Button>

@@ -58,8 +58,8 @@ export function CategorySelect({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className={cn(
-            "h-11 w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm text-foreground",
-            "transition-colors duration-150 outline-none hover:border-[#353941]",
+            "h-11 w-full rounded-lg border border-skope-line-strong bg-surface-input px-3 text-sm text-foreground",
+            "transition-colors duration-fast outline-none hover:border-skope-line-hover",
             "focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15",
             error && "border-state-error/60"
           )}

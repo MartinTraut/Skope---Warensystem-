@@ -26,6 +26,10 @@
     --color-surface-sunken: var(--surface-sunken);
     --color-surface-raised: var(--surface-raised);
     --color-surface-track: var(--surface-track);
+    --color-surface-input: var(--surface-input);
+    --color-skope-line-hover: var(--skope-line-hover);
+    --color-text-strong: var(--text-strong);
+    --color-text-label: var(--text-label);
 
     /* Statusfarben */
     --color-state-neutral: var(--state-neutral);
@@ -133,8 +137,31 @@
     --surface-track: #ffffff12;
 
     /*
+     * Eingabefläche.
+     *
+     * Die siebte Flächenstufe — und die einzige, die dunkler ist als der
+     * Grund statt heller. Sie lag als `bg-[#0b0c0e]` in sechs Dateien und
+     * stand in keiner Aufzählung; `--skope-line-hover` ist die Kante dazu
+     * beim Überfahren.
+     */
+    --surface-input: #0b0c0e;
+    --skope-line-hover: #353941;
+
+    /*
+     * Zwei Textfarben oberhalb und unterhalb von `foreground`: der Ton für
+     * Überschriften und der für Struktur-Labels. Beide standen als Hex-Wert
+     * direkt in den Typografieklassen.
+     */
+    --text-strong: #fafbfc;
+    --text-label: #b4bcc8;
+
+    /*
      * Bewegung. Zwei Dauern statt der bisherigen Spanne von 100 bis 500 ms:
      * kurz für Farb- und Hover-Wechsel, mittel für Ein- und Ausblenden.
+     *
+     * Benutzt werden sie über die Utilities `duration-fast`, `duration-base`
+     * und `ease-skope` weiter unten. Ohne die standen diese Werte hier als
+     * Absichtserklärung, während im Projekt fünf freihändige Dauern liefen.
      */
     --motion-fast: 180ms;
     --motion-base: 260ms;
@@ -275,7 +302,7 @@
     .type-display,
     .type-page-title,
     .type-section {
-        color: #fafbfc;
+        color: var(--text-strong);
     }
 
     /* Fluid Type — skaliert mit dem Viewport, nie in harten Sprüngen. */
@@ -311,7 +338,7 @@
         letter-spacing: -0.04em;
         font-weight: 500;
         font-variant-numeric: tabular-nums;
-        color: #fafbfc;
+        color: var(--text-strong);
     }
 
     .type-metric {
@@ -328,7 +355,8 @@
      * Vorher standen fünf konkurrierende Größen zwischen 10 und 14 px
      * nebeneinander (type-body-sm, type-caption, text-[10px], text-xs,
      * text-sm) — teils in derselben Komponente. Zwei benannte Stufen unter
-     * text-sm reichen aus und lassen sich zentral ändern.
+     * text-sm reichen aus und lassen sich zentral ändern; darunter liegt
+     * nur noch `type-micro` für Zähler und Achsen.
      */
     .type-body-sm {
         font-size: 0.875rem;
@@ -340,6 +368,20 @@
         line-height: 1.45;
     }
 
+    /*
+     * Kleinstufe für Zahlen an Zählern, Achsen und Merkern.
+     *
+     * Diese Stufe gab es längst — als `text-[11px]` an achtzehn Stellen, in
+     * fünf Dateien, jede für sich entschieden. Sie ist berechtigt: Ein
+     * Zähler im 20-px-Kreis und eine Achsenbeschriftung tragen keine 13 px.
+     * Nur benannt war sie nicht. Für Fließtext ist sie nicht gedacht.
+     */
+    .type-micro {
+        font-size: 0.6875rem;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+    }
+
     /* Kleines Label über Werten — Cockpit-Anmutung. */
     .type-label {
         font-size: 0.75rem;
@@ -348,7 +390,7 @@
         text-transform: uppercase;
         font-weight: 600;
         /* Eigener Ton: Labels sind Struktur, nicht Nebentext. */
-        color: #b4bcc8;
+        color: var(--text-label);
     }
 
     /* Karte mit metallischer Oberkante. Ohne Glassmorphism. */
@@ -451,6 +493,29 @@
     }
 }
 
+/*
+ * Bewegung als Auswahl, nicht als Zahl.
+ *
+ * `duration-150`, `-200`, `-300`, `-500` standen nebeneinander im Projekt,
+ * ohne dass die Unterschiede etwas bedeutet hätten. Diese drei Utilities sind
+ * der einzige Weg zu einer Übergangsdauer — geändert wird sie oben am Token.
+ */
+@utility duration-fast {
+    /* Auch die Animationsdauer: `animate-in` wird mit derselben Klasse
+       eingestellt wie ein Übergang. */
+    transition-duration: var(--motion-fast);
+    animation-duration: var(--motion-fast);
+}
+
+@utility duration-base {
+    transition-duration: var(--motion-base);
+    animation-duration: var(--motion-base);
+}
+
+@utility ease-skope {
+    transition-timing-function: var(--motion-ease);
+}
+
 @layer utilities {
     /* Reveal beim Eintreten. Kurz, ruhig, nicht verspielt. */
     @keyframes skope-rise {
@@ -465,7 +530,7 @@
     }
 
     .animate-rise {
-        animation: skope-rise 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+        animation: skope-rise 320ms var(--motion-ease) both;
     }
 
     @keyframes skope-pulse-soft {
@@ -498,7 +563,7 @@
 
     .animate-bar-rise {
         transform-origin: bottom;
-        animation: skope-bar-rise 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+        animation: skope-bar-rise 420ms var(--motion-ease) both;
     }
 
     /*

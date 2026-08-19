@@ -181,10 +181,16 @@ export function DataField({ label, value, mono, className }: DataFieldProps) {
   return (
     <div className={cn("min-w-0", className)}>
       <dt className="type-label">{label}</dt>
+      {/*
+        Eine Größe je Zweig: `text-sm` und `type-body-sm` standen bei
+        Monospace-Werten gleichzeitig auf dem Element und trugen beide eine
+        Schriftgröße — welche gewann, entschied die Reihenfolge im
+        Stylesheet, nicht diese Datei.
+      */}
       <dd
         className={cn(
-          "mt-1 truncate text-sm text-foreground",
-          mono && "font-mono type-body-sm"
+          "mt-1 truncate text-foreground",
+          mono ? "font-mono type-body-sm" : "text-sm"
         )}
       >
         {value}
@@ -269,7 +275,7 @@ export function DemoTag({
         // Bewusst neutral: Ein Meta-Hinweis trägt keine Handlung und soll
         // dem Primärbutton und der Aktivnavigation den Markenakzent nicht
         // streitig machen.
-        "inline-flex items-center rounded border border-skope-line-strong bg-surface-raised px-1.5 py-0.5 text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase",
+        "inline-flex items-center rounded border border-skope-line-strong bg-surface-raised px-1.5 py-0.5 type-micro font-medium tracking-[0.14em] text-muted-foreground uppercase",
         className
       )}
     >
@@ -303,7 +309,7 @@ export function Metric({
     <Panel
       accent={accent}
       className={cn(
-        "group p-4 transition-colors duration-200 hover:border-skope-line-strong sm:p-5",
+        "group p-4 transition-colors duration-fast hover:border-skope-line-strong sm:p-5",
         className
       )}
     >
@@ -312,7 +318,7 @@ export function Metric({
         {icon && (
           <span
             className={cn(
-              "shrink-0 transition-colors duration-200",
+              "shrink-0 transition-colors duration-fast",
               accent ? "text-skope-accent" : "text-muted-foreground/60 group-hover:text-muted-foreground"
             )}
             aria-hidden

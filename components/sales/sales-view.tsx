@@ -241,7 +241,7 @@ function SalesTable({ sales }: { sales: Sale[] }) {
                   </span>
                   {sale.cancelledAt && (
                     <span
-                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-state-error"
+                      className="mt-1 inline-flex items-center gap-1 type-micro font-medium text-state-error"
                       title={sale.cancelReason}
                     >
                       Storniert · {sale.cancelReason}
@@ -366,7 +366,7 @@ function SyncCell({ sale }: { sale: Sale }) {
       <SyncBadge status="FEHLER" />
       <Button
         variant="outline"
-        className="h-8 px-2.5 text-xs"
+        size="xs"
         disabled={busy}
         onClick={async () => {
           setBusy(true)
@@ -398,7 +398,7 @@ function Th({
     <th
       scope="col"
       className={cn(
-        "px-3 py-2.5 text-[11px] font-medium tracking-[0.1em] text-muted-foreground/80 uppercase",
+        "px-3 py-2.5 type-label text-muted-foreground/80",
         align === "right" && "text-right",
         className
       )}

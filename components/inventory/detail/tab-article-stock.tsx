@@ -90,7 +90,7 @@ export function TabArticleStock({ view }: { view: ArticleView }) {
                       <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-track">
                         <div
                           className={cn(
-                            "h-full rounded-full bg-skope-accent transition-[width] duration-300"
+                            "h-full rounded-full bg-skope-accent transition-[width] duration-base"
                           )}
                           style={{ width: `${Math.max(2, share)}%` }}
                         />

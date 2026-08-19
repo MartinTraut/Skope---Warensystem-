@@ -182,7 +182,7 @@ export function ImageGallery({
           action={
             !locked && (
               <Button
-                className="h-9 gap-2 px-3.5"
+                size="sm"
                 onClick={() => inputRef.current?.click()}
                 disabled={uploading}
               >
@@ -224,7 +224,7 @@ export function ImageGallery({
                 }
               }}
               className={cn(
-                "mb-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition-colors duration-200",
+                "mb-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition-colors duration-fast",
                 dragOver
                   ? "border-skope-accent/60 bg-skope-accent/8"
                   : "border-skope-line-strong hover:border-skope-accent/35 hover:bg-surface-sunken",
@@ -268,19 +268,19 @@ export function ImageGallery({
                     <img
                       src={image.url}
                       alt={image.name}
-                      className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      className="size-full object-cover transition-transform duration-base group-hover:scale-[1.03]"
                     />
                   </div>
 
                   {image.isPrimary && (
-                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-md border border-skope-accent/35 bg-[#0b0c0e]/90 px-1.5 py-0.5 text-[11px] font-medium text-skope-accent">
+                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-md border border-skope-accent/35 bg-surface-input/90 px-1.5 py-0.5 type-micro font-medium text-skope-accent">
                       <Star className="size-2.5 fill-current" />
                       Titelbild
                     </span>
                   )}
 
                   {!locked && (
-                    <div className="flex items-center justify-between gap-1 border-t border-skope-line bg-[#0b0c0e] px-1.5 py-1.5">
+                    <div className="flex items-center justify-between gap-1 border-t border-skope-line bg-surface-input px-1.5 py-1.5">
                       <div className="flex items-center gap-0.5">
                         <IconButton
                           label="Nach vorne"

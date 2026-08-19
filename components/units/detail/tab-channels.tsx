@@ -257,7 +257,6 @@ function ChannelCard({
         <div className="flex flex-wrap gap-2">
           {!published && !sold && (
             <Button
-              className="h-10 px-4"
               disabled={!ready || busy !== null}
               onClick={() => run("publish", meta.automated ? "Veröffentlichung" : "Vermerk")}
             >
@@ -272,7 +271,6 @@ function ChannelCard({
           {published && meta.automated && (
             <Button
               variant="outline"
-              className="h-10 px-4"
               disabled={busy !== null}
               onClick={() => run("update", "Aktualisierung")}
             >
@@ -283,7 +281,6 @@ function ChannelCard({
           {failed && (
             <Button
               variant="outline"
-              className="h-10 gap-2 px-4"
               disabled={busy !== null}
               onClick={() => run("retry", "Wiederholung")}
             >
@@ -295,7 +292,6 @@ function ChannelCard({
           {stillActive && (
             <Button
               variant="outline"
-              className="h-10 px-4"
               disabled={busy !== null}
               onClick={() => run("deactivate", "Deaktivierung")}
             >
@@ -306,7 +302,6 @@ function ChannelCard({
           {!meta.automated && listingText && (
             <Button
               variant="outline"
-              className="h-10 gap-2 px-4"
               onClick={copyListing}
             >
               {copied ? (

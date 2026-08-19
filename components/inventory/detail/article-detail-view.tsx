@@ -26,11 +26,13 @@ import {
   PanelHeader,
 } from "@/components/skope/primitives"
 import { PanelSkeleton } from "@/components/skope/skeletons"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { Button } from "@/components/ui/button"
 import { useActivity, useArticleView, useHydrated } from "@/hooks/use-cockpit"
 import { repositories } from "@/lib/data/demo-repository"
 import { articleLabel } from "@/lib/domain/article-factory"
 import type { ArticleView } from "@/lib/domain/types"
+import { cn } from "@/lib/utils"
 
 type TabKey = "overview" | "stock" | "units" | "images" | "channels" | "history"
 
@@ -95,7 +97,7 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
     <div className="space-y-6">
       <Link
         href="/inventory"
-        className="inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+        className={cn("inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground", FOCUS_RING)}
       >
         <ArrowLeft className="size-3.5" />
         Zurück zum Bestand
@@ -124,7 +126,6 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            className="h-10 gap-2 px-4"
             onClick={() => setEditOpen(true)}
           >
             <Pencil className="size-4" />
@@ -134,7 +135,6 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
             <>
               <Button
                 variant="outline"
-                className="h-10 gap-2 px-4"
                 onClick={() => setTransferOpen(true)}
                 disabled={stock.quantity === 0}
               >
@@ -143,7 +143,6 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
               </Button>
               <Button
                 variant="outline"
-                className="h-10 gap-2 px-4"
                 onClick={() => setIssueOpen(true)}
                 disabled={stock.quantity === 0}
               >
@@ -152,14 +151,13 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
               </Button>
               <Button
                 variant="outline"
-                className="h-10 gap-2 px-4"
                 onClick={() => setSellOpen(true)}
                 disabled={stock.quantity === 0}
               >
                 <Tag className="size-4" />
                 Verkauf
               </Button>
-              <Button className="h-10 gap-2 px-4" onClick={() => setReceiveOpen(true)}>
+              <Button onClick={() => setReceiveOpen(true)}>
                 <Plus className="size-4" />
                 Zugang buchen
               </Button>

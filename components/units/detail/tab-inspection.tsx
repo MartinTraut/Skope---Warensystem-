@@ -122,7 +122,6 @@ export function TabInspection({ unit }: { unit: ArticleUnit }) {
                   {unit.saleStatus !== "VERKAUFT" && (
                     <Button
                       variant="outline"
-                      className="h-10 gap-2 px-4"
                       onClick={reopen}
                       disabled={busy}
                     >
@@ -133,7 +132,6 @@ export function TabInspection({ unit }: { unit: ArticleUnit }) {
                 </>
               ) : (
                 <Button
-                  className="h-10 px-4"
                   onClick={complete}
                   disabled={busy || !progress.complete}
                   title={
@@ -151,7 +149,7 @@ export function TabInspection({ unit }: { unit: ArticleUnit }) {
           <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-raised">
             <div
               className={cn(
-                "h-full rounded-full transition-[width] duration-300",
+                "h-full rounded-full transition-[width] duration-base",
                 progress.problems > 0 ? "bg-state-warn" : "bg-skope-accent"
               )}
               style={{ width: `${progress.percent}%` }}
@@ -240,7 +238,7 @@ export function TabInspection({ unit }: { unit: ArticleUnit }) {
               repositories.units.setInspectionNote(unit.id, event.target.value)
             }
             className={cn(
-              "w-full resize-y rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 py-2.5 text-sm leading-relaxed",
+              "w-full resize-y rounded-lg border border-skope-line-strong bg-surface-input px-3 py-2.5 text-sm leading-relaxed",
               "text-foreground placeholder:text-muted-foreground/70",
               "focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 focus:outline-none",
               "disabled:opacity-60"
@@ -308,7 +306,7 @@ function ResultToggle({
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-xs font-medium transition-colors duration-200 sm:flex-none",
+              "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-xs font-medium transition-colors duration-fast sm:flex-none",
               FOCUS_RING,
               active
                 ? option.active
@@ -360,7 +358,7 @@ function NoteField({
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => draft !== value && onCommit(draft)}
       className={cn(
-        "mt-3 h-11 w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm",
+        "mt-3 h-11 w-full rounded-lg border border-skope-line-strong bg-surface-input px-3 text-sm",
         "text-foreground placeholder:text-muted-foreground/70",
         "focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15 focus:outline-none",
         "disabled:opacity-60"

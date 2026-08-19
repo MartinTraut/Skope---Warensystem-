@@ -10,6 +10,8 @@ import { formatCents, formatKm } from "@/lib/domain/money"
 import { totalCostCents } from "@/lib/domain/metrics"
 import { isUnitInStock } from "@/lib/domain/stock"
 import type { ArticleView } from "@/lib/domain/types"
+import { FOCUS_RING } from "@/components/skope/focus"
+import { cn } from "@/lib/utils"
 
 /** Alle Geräte dieses Artikels — im Bestand und bereits abgeschlossen. */
 export function TabArticleUnits({ view }: { view: ArticleView }) {
@@ -38,7 +40,10 @@ export function TabArticleUnits({ view }: { view: ArticleView }) {
               <li key={unit.id}>
                 <Link
                   href={`/units/${unit.id}`}
-                  className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none sm:px-5"
+                  className={cn(
+                    "flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-surface-sunken sm:px-5",
+                    FOCUS_RING
+                  )}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

@@ -21,6 +21,7 @@ import {
   PanelHeader,
 } from "@/components/skope/primitives"
 import { PanelSkeleton } from "@/components/skope/skeletons"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { Button } from "@/components/ui/button"
 import {
   useActivity,
@@ -32,6 +33,7 @@ import { getInspectionProgress } from "@/lib/domain/inspection"
 import { unitLabel } from "@/lib/domain/article-factory"
 import { TabBar, type TabBadge } from "@/components/skope/tab-bar"
 import type { ArticleUnit } from "@/lib/domain/types"
+import { cn } from "@/lib/utils"
 
 const TABS = [
   { key: "overview", label: "Übersicht" },
@@ -88,7 +90,7 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
     <div className="space-y-6">
       <Link
         href="/inventory"
-        className="inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+        className={cn("inline-flex items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground", FOCUS_RING)}
       >
         <ArrowLeft className="size-3.5" />
         Zurück zum Bestand
@@ -117,7 +119,6 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            className="h-10 gap-2 px-4"
             onClick={() => setEditOpen(true)}
           >
             <Pencil className="size-4" />
@@ -127,12 +128,11 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
             <>
               <Button
                 variant="outline"
-                className="h-10 px-4"
                 onClick={() => setTab("channels")}
               >
                 Veröffentlichen
               </Button>
-              <Button className="h-10 px-4" onClick={() => setSoldOpen(true)}>
+              <Button onClick={() => setSoldOpen(true)}>
                 Als verkauft markieren
               </Button>
             </>

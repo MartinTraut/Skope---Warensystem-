@@ -120,7 +120,7 @@ export function TabSale({ unit }: { unit: ArticleUnit }) {
             </p>
             {sale.sheetsSyncStatus === "FEHLER" && (
               <Button
-                className="h-10 w-full px-4"
+                className="w-full"
                 disabled={busy}
                 onClick={() =>
                   run(repositories.sales.retrySheetsSync(sale.id), {
@@ -154,7 +154,7 @@ export function TabSale({ unit }: { unit: ArticleUnit }) {
             {unit.saleStatus === "VERFUEGBAR" ? (
               <Button
                 variant="outline"
-                className="h-10 w-full gap-2 px-4"
+                className="w-full"
                 disabled={busy}
                 onClick={() =>
                   run(
@@ -169,7 +169,7 @@ export function TabSale({ unit }: { unit: ArticleUnit }) {
             ) : (
               <Button
                 variant="outline"
-                className="h-10 w-full gap-2 px-4"
+                className="w-full"
                 disabled={busy}
                 onClick={() =>
                   run(
@@ -187,7 +187,8 @@ export function TabSale({ unit }: { unit: ArticleUnit }) {
             )}
 
             <Button
-              className="h-11 w-full px-4"
+              size="lg"
+              className="w-full"
               onClick={() => setSoldOpen(true)}
             >
               Als verkauft markieren
@@ -268,7 +269,7 @@ function PricingPanel({ unit }: { unit: ArticleUnit }) {
         description="Grundlage für Veröffentlichung und Margenberechnung."
         action={
           dirty && (
-            <Button className="h-9 px-3.5" onClick={save} disabled={saving}>
+            <Button size="sm" onClick={save} disabled={saving}>
               {saving ? "…" : "Speichern"}
             </Button>
           )

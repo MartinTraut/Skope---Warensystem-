@@ -97,7 +97,6 @@ export function CategoriesView() {
         description="Eigene Struktur für Scooter, Ersatzteile und alles Weitere. Nummernkreis, Merkmalsfelder und Kanalregel gelten für den Bereich und erben sich nach unten."
         actions={
           <Button
-            className="h-10 gap-2 px-4"
             onClick={() => setCreatingUnder(null)}
           >
             <Plus className="size-4" />
@@ -142,7 +141,7 @@ export function CategoriesView() {
             title="Noch kein Bereich"
             description="Beginne mit den groben Blöcken — etwa „Scooter“ und „Ersatzteile“ — und verfeinere sie danach."
             action={
-              <Button className="h-10 px-4" onClick={() => setCreatingUnder(null)}>
+              <Button onClick={() => setCreatingUnder(null)}>
                 Ersten Bereich anlegen
               </Button>
             }
@@ -274,7 +273,8 @@ function CategoryNode({
           </Link>
           <Button
             variant="ghost"
-            className={cn("size-9 p-0", TOUCH_EXTEND)}
+            size="icon-sm"
+            className={TOUCH_EXTEND}
             aria-label="Unterbereich anlegen"
             onClick={() => onAddChild(category.id)}
           >
@@ -282,7 +282,8 @@ function CategoryNode({
           </Button>
           <Button
             variant="ghost"
-            className={cn("size-9 p-0", TOUCH_EXTEND)}
+            size="icon-sm"
+            className={TOUCH_EXTEND}
             aria-label="Bereich bearbeiten"
             onClick={() => onEdit(category)}
           >
@@ -290,7 +291,8 @@ function CategoryNode({
           </Button>
           <Button
             variant="ghost"
-            className={cn("size-9 p-0 text-muted-foreground hover:text-state-error", TOUCH_EXTEND)}
+            size="icon-sm"
+            className={cn("text-muted-foreground hover:text-state-error", TOUCH_EXTEND)}
             aria-label="Bereich löschen"
             onClick={() => onRemove(category)}
           >
@@ -418,12 +420,11 @@ function CategoryDialog({
         <>
           <Button
             variant="outline"
-            className="h-10 px-4"
             onClick={() => onOpenChange(false)}
           >
             Abbrechen
           </Button>
-          <Button className="h-10 px-4" onClick={save} disabled={saving}>
+          <Button onClick={save} disabled={saving}>
             {saving ? "Wird gespeichert …" : "Speichern"}
           </Button>
         </>

@@ -68,7 +68,7 @@ export function AttributeEditor({
             unten überschreiben die Definition von oben.
           </p>
         </div>
-        <Button variant="outline" className="h-9 shrink-0 gap-2 px-3.5" onClick={add}>
+        <Button variant="outline" size="sm" className="shrink-0" onClick={add}>
           <Plus className="size-4" />
           Merkmal
         </Button>
@@ -125,7 +125,8 @@ export function AttributeEditor({
                 />
                 <Button
                   variant="ghost"
-                  className="size-10 shrink-0 p-0 text-muted-foreground hover:text-state-error"
+                  size="icon"
+                  className="text-muted-foreground hover:text-state-error"
                   aria-label="Merkmal entfernen"
                   onClick={() =>
                     onChange(value.filter((_, position) => position !== index))
@@ -156,7 +157,7 @@ export function AttributeEditor({
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
-                    className="size-3.5 accent-[var(--skope-accent,#7dd956)]"
+                    className="size-3.5 accent-skope-accent"
                     checked={definition.required}
                     onChange={(event) =>
                       update(index, { required: event.target.checked })
@@ -167,7 +168,7 @@ export function AttributeEditor({
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
-                    className="size-3.5 accent-[var(--skope-accent,#7dd956)]"
+                    className="size-3.5 accent-skope-accent"
                     checked={definition.filterable}
                     onChange={(event) =>
                       update(index, { filterable: event.target.checked })
@@ -175,7 +176,7 @@ export function AttributeEditor({
                   />
                   Als Filter anzeigen
                 </label>
-                <span className="ml-auto font-mono text-[11px] text-muted-foreground/70">
+                <span className="ml-auto font-mono type-micro text-muted-foreground/70">
                   {definition.key}
                 </span>
               </div>

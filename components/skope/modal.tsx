@@ -136,12 +136,12 @@ export function Modal({
             <div className="flex shrink-0 gap-2">
               <Button
                 variant="outline"
-                className="h-11 px-4"
+                size="lg"
                 onClick={() => setAskingDiscard(false)}
               >
                 Weiter bearbeiten
               </Button>
-              <Button variant="destructive" className="h-11 px-4" onClick={discard}>
+              <Button variant="destructive" size="lg" onClick={discard}>
                 Verwerfen
               </Button>
             </div>

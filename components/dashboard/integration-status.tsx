@@ -9,6 +9,8 @@ import { StatusPill } from "@/components/skope/status-pill"
 import type { StatusTone } from "@/lib/domain/status"
 import { RelativeTime } from "@/components/skope/client-time"
 import { useIntegrationState } from "@/hooks/use-cockpit"
+import { FOCUS_RING } from "@/components/skope/focus"
+import { cn } from "@/lib/utils"
 
 /**
  * Zustand der angebundenen Systeme.
@@ -88,7 +90,7 @@ export function IntegrationStatus() {
         action={
           <Link
             href="/integrations"
-            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+            className={cn("inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent", FOCUS_RING)}
           >
             Verwalten
             <ArrowUpRight className="size-3.5" />

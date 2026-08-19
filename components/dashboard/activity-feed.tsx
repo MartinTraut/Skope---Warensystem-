@@ -10,6 +10,7 @@ import { useActivity, useHydrated } from "@/hooks/use-cockpit"
 import type { AuditEvent } from "@/lib/domain/types"
 import { auditEventHref } from "@/components/skope/links"
 import { cn } from "@/lib/utils"
+import { FOCUS_RING } from "@/components/skope/focus"
 
 const LEVEL_DOT: Record<AuditEvent["level"], string> = {
   info: "bg-skope-steel/60",
@@ -31,7 +32,7 @@ export function ActivityFeed({ limit = 8 }: { limit?: number }) {
         action={
           <Link
             href="/activity"
-            className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+            className={cn("inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent", FOCUS_RING)}
           >
             Alle anzeigen
             <ArrowUpRight className="size-3.5" />
@@ -78,7 +79,7 @@ export function ActivityList({ events }: { events: AuditEvent[] }) {
               {event.itemNumber && auditEventHref(event) ? (
                 <Link
                   href={auditEventHref(event)!}
-                  className="rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+                  className={cn("rounded font-mono type-body-sm font-medium text-foreground transition-colors hover:text-skope-accent", FOCUS_RING)}
                 >
                   {event.itemNumber}
                 </Link>

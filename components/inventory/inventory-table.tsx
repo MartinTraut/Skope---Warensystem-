@@ -128,8 +128,14 @@ function DesktopTable({
 
   return (
     <table className="w-full text-left text-sm">
-      <thead className="bg-skope-accent/[0.11]">
-        <tr className="border-b border-skope-accent/25">
+      {/*
+        Der Kopf trug als einzige Tabelle im System eine grün getönte Fläche
+        und eine grüne Trennlinie — dieselbe Farbe, die sonst „ausgewählt"
+        und „aktiv" bedeutet. Jetzt dieselbe Grundfläche wie in Verkäufen und
+        Import; grün bleibt der aktiv sortierten Spalte vorbehalten.
+      */}
+      <thead className="bg-surface-sunken">
+        <tr className="border-b border-skope-line">
           <Th className="pl-4 sm:pl-5" {...sortable("name")}>
             Artikel
           </Th>
@@ -166,7 +172,7 @@ function DesktopTable({
             key={article.id}
             onClick={(event) => openRow(`/inventory/${article.id}`, event)}
             className={cn(
-              "group cursor-pointer transition-colors duration-150 hover:bg-surface-sunken",
+              "group cursor-pointer transition-colors duration-fast hover:bg-surface-sunken",
               article.archivedAt !== null && "opacity-55"
             )}
           >
@@ -234,7 +240,7 @@ function DesktopTable({
               <Link
                 href={`/inventory/${article.id}`}
                 aria-label={`${article.sku} öffnen`}
-                className="grid size-8 place-items-center rounded-md text-muted-foreground/50 transition-colors group-hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+                className={cn("grid size-8 place-items-center rounded-md text-muted-foreground/50 transition-colors group-hover:text-skope-accent", FOCUS_RING)}
               >
                 <ChevronRight className="size-4" />
               </Link>
@@ -286,7 +292,7 @@ function QuantityCell({
         </span>
       )}
       {reorderLevel !== null && (
-        <span className="text-[11px] font-normal text-muted-foreground">
+        <span className="type-micro font-normal text-muted-foreground">
           / {reorderLevel}
         </span>
       )}
@@ -324,7 +330,7 @@ function Th({
 }) {
   const active = sortKey !== undefined && sort?.key === sortKey
   const base =
-    "px-2.5 py-3 text-[11px] font-semibold tracking-[0.1em] whitespace-nowrap text-skope-accent/85 uppercase"
+    "px-2.5 py-3 type-label whitespace-nowrap"
 
   if (!sortKey || !onSort) {
     return (
@@ -351,10 +357,10 @@ function Th({
         type="button"
         onClick={() => onSort(sortKey)}
         className={cn(
-          "flex w-full items-center gap-1 px-2.5 py-3 transition-colors duration-150 hover:text-skope-accent",
+          "flex w-full items-center gap-1 px-2.5 py-3 transition-colors duration-fast hover:text-skope-accent",
           FOCUS_RING,
           align === "right" && "justify-end",
-          active ? "text-skope-accent" : "text-skope-accent/85"
+          active ? "text-skope-accent" : "text-muted-foreground/80"
         )}
       >
         {align === "right" && (

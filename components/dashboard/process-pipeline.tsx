@@ -61,7 +61,7 @@ export function ProcessPipeline() {
                 <Link
                   href={STAGE_LINKS[stage.key] ?? "/scooters"}
                   className={cn(
-                    "group block h-full rounded-lg border border-skope-line bg-surface-sunken p-3.5 transition-all duration-200",
+                    "group block h-full rounded-lg border border-skope-line bg-surface-sunken p-3.5 transition-all duration-fast",
                     "hover:border-skope-line-strong hover:bg-surface-raised",
                     FOCUS_RING
                   )}
@@ -75,7 +75,7 @@ export function ProcessPipeline() {
                   <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-surface-track">
                     <div
                       className={cn(
-                        "h-full rounded-full transition-[width] duration-300",
+                        "h-full rounded-full transition-[width] duration-base",
                         tone.bar
                       )}
                       style={{ width: `${Math.max(4, (stage.count / max) * 100)}%` }}

@@ -195,7 +195,7 @@ export function SettingsView() {
         <PanelBody>
           <div className="flex flex-wrap gap-2">
             <Button
-              className="h-11 gap-2 px-4"
+              size="lg"
               onClick={exportData}
               disabled={busy}
             >
@@ -204,7 +204,7 @@ export function SettingsView() {
             </Button>
             <Button
               variant="outline"
-              className="h-11 gap-2 px-4"
+              size="lg"
               onClick={() => fileRef.current?.click()}
               disabled={busy}
             >
@@ -236,7 +236,7 @@ export function SettingsView() {
         <PanelBody>
           <Button
             variant="outline"
-            className="h-11 gap-2 px-4"
+            size="lg"
             onClick={() => setResetOpen(true)}
             disabled={busy}
           >
@@ -307,14 +307,12 @@ export function SettingsView() {
           <>
             <Button
               variant="outline"
-              className="h-10 px-4"
               onClick={() => setPendingFile(null)}
             >
               Abbrechen
             </Button>
             <Button
               variant="destructive"
-              className="h-10 px-4"
               onClick={confirmImport}
               disabled={busy}
             >
@@ -351,14 +349,12 @@ export function SettingsView() {
           <>
             <Button
               variant="outline"
-              className="h-10 px-4"
               onClick={() => setResetOpen(false)}
             >
               Abbrechen
             </Button>
             <Button
               variant="destructive"
-              className="h-10 px-4"
               onClick={reset}
               disabled={resetting}
             >

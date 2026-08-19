@@ -21,6 +21,7 @@ import type {
 import { CHANNELS } from "@/lib/domain/types"
 import { STOCK_MODE_META } from "@/lib/domain/status"
 import { cn } from "@/lib/utils"
+import { FOCUS_RING } from "@/components/skope/focus"
 
 /** Statusanzeigen, die in Tabellen, Karten und Detailseiten identisch aussehen. */
 
@@ -134,7 +135,7 @@ export function ChannelIndicators({
             key={channel}
             title={`${CHANNEL_META[channel].label}: ${LISTING_STATUS_META[status].label}`}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-medium tracking-wide",
+              "inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 type-micro font-medium tracking-wide",
               status === "NICHT_VEROEFFENTLICHT"
                 ? "border-white/6 text-muted-foreground/50"
                 : "border-white/8 text-foreground/75"
@@ -192,7 +193,8 @@ export function ItemIdentity({
     <Link
       href={href}
       className={cn(
-        "group block min-w-0 rounded-md transition-colors focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
+        "group block min-w-0 rounded-md transition-colors",
+        FOCUS_RING,
         className
       )}
     >

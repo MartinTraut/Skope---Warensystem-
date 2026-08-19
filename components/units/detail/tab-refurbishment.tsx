@@ -98,7 +98,7 @@ export function TabRefurbishment({ unit }: { unit: ArticleUnit }) {
             action={
               !locked && (
                 <Button
-                  className="h-9 gap-2 px-3.5"
+                  size="sm"
                   onClick={() => setDialogOpen(true)}
                 >
                   <Plus className="size-4" />
@@ -117,7 +117,6 @@ export function TabRefurbishment({ unit }: { unit: ArticleUnit }) {
                 !locked && (
                   <Button
                     variant="outline"
-                    className="h-10 px-4"
                     onClick={() => setDialogOpen(true)}
                   >
                     Erste Reparatur anlegen
@@ -304,7 +303,7 @@ function CleaningPanel({
         {!locked && (
           <Button
             variant={done ? "outline" : "default"}
-            className="mt-4 h-10 w-full px-4"
+            className="mt-4 w-full"
             disabled={busy}
             onClick={async () => {
               setBusy(true)
@@ -435,12 +434,11 @@ function RepairDialog({
         <>
           <Button
             variant="outline"
-            className="h-10 px-4"
             onClick={() => onOpenChange(false)}
           >
             Abbrechen
           </Button>
-          <Button className="h-10 px-4" onClick={submit}>
+          <Button onClick={submit}>
             Reparatur anlegen
           </Button>
         </>

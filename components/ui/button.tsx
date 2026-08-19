@@ -19,18 +19,29 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      /*
+        Die Größenskala des Cockpits, nicht die der Vorlage.
+
+        Geerbt war eine Skala von 24 bis 36 px — für eine Anwendung, die am
+        Werkstatt-Tablet bedient wird, durchweg zu klein. Die Folge: 92
+        Aufrufstellen setzten ihre Höhe selbst („h-10 px-4", „h-11 px-4",
+        „size-9 p-0"), jede für sich plausibel, zusammen keine Skala mehr.
+        Hier stehen jetzt die Maße, die tatsächlich benutzt werden — und die
+        Aufrufstellen wählen wieder aus, statt zu überschreiben.
+
+        `default` ist die Arbeitsgröße (40 px), `lg` die im Dialogfuß (44 px,
+        die Touch-Untergrenze aus `focus.ts`), `sm` die in Filterleisten,
+        `xs` die im Tabellenkopf.
+      */
       size: {
-        default:
-          "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        icon: "size-8",
-        "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-9",
+        default: "h-10 gap-2 px-4",
+        xs: "h-8 gap-1.5 px-2.5 text-xs [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-9 gap-2 px-3.5",
+        lg: "h-11 gap-2 px-5",
+        icon: "size-10",
+        "icon-xs": "size-8 [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-sm": "size-9",
+        "icon-lg": "size-11",
       },
     },
     defaultVariants: {

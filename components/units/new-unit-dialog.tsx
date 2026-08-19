@@ -206,10 +206,10 @@ export function NewUnitDialog({
       dirty={dirty}
       footer={
         <>
-          <Button variant="outline" className="h-11 px-4" onClick={() => close(false)}>
+          <Button variant="outline" size="lg" onClick={() => close(false)}>
             Abbrechen
           </Button>
-          <Button className="h-11 px-5" onClick={submit} disabled={busy}>
+          <Button size="lg" onClick={submit} disabled={busy}>
             {busy ? "Wird erfasst …" : "Gerät erfassen"}
           </Button>
         </>
@@ -236,7 +236,7 @@ export function NewUnitDialog({
                 onChange={(event) => set("articleId", event.target.value)}
                 disabled={!draft.categoryId}
                 className={cn(
-                  "h-11 w-full rounded-lg border border-skope-line-strong bg-[#0b0c0e] px-3 text-sm text-foreground",
+                  "h-11 w-full rounded-lg border border-skope-line-strong bg-surface-input px-3 text-sm text-foreground",
                   "outline-none focus:border-skope-accent/60 focus:ring-3 focus:ring-skope-accent/15",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                   errors.articleId && "border-state-error/60"

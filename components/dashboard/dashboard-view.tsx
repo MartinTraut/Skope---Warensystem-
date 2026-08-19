@@ -39,6 +39,7 @@ import {
   useSlowMovers,
 } from "@/hooks/use-cockpit"
 import { cn } from "@/lib/utils"
+import { FOCUS_RING } from "@/components/skope/focus"
 
 /**
  * Startseite des Cockpits.
@@ -294,7 +295,7 @@ export function DashboardView() {
             action={
               <Link
                 href="/inventory"
-                className="inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+                className={cn("inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-skope-accent", FOCUS_RING)}
               >
                 Alle {metrics.articleCount}
                 <ArrowUpRight className="size-3.5" />
@@ -375,8 +376,10 @@ function StockCell({
     </>
   )
 
-  const className =
-    "group -mt-px -ml-px block p-4 transition-colors hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+  const className = cn(
+    "group -mt-px -ml-px block p-4 transition-colors hover:bg-surface-sunken",
+    FOCUS_RING
+  )
 
   return href ? (
     <Link href={href} className={className}>

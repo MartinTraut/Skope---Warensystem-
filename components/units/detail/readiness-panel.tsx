@@ -57,7 +57,7 @@ export function ReadinessPanel({ unit }: { unit: ArticleUnit }) {
         }
         action={
           ready && unit.workflowStatus !== "VERKAUFSBEREIT" ? (
-            <Button className="h-9 px-3.5" onClick={setReady} disabled={working}>
+            <Button size="sm" onClick={setReady} disabled={working}>
               {working ? "…" : "Verkaufsbereit setzen"}
             </Button>
           ) : null

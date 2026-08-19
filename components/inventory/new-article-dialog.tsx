@@ -152,10 +152,10 @@ export function NewArticleDialog({
       dirty={dirty}
       footer={
         <>
-          <Button variant="outline" className="h-11 px-4" onClick={() => close(false)}>
+          <Button variant="outline" size="lg" onClick={() => close(false)}>
             Abbrechen
           </Button>
-          <Button className="h-11 px-5" onClick={submit} disabled={busy}>
+          <Button size="lg" onClick={submit} disabled={busy}>
             {busy ? "Wird angelegt …" : "Artikel anlegen"}
           </Button>
         </>

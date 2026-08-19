@@ -10,6 +10,7 @@ import { formatKm } from "@/lib/domain/money"
 import type { Article, ArticleUnit } from "@/lib/domain/types"
 import { unitLabel } from "@/lib/domain/article-factory"
 import { cn } from "@/lib/utils"
+import { FOCUS_RING } from "@/components/skope/focus"
 
 /**
  * Zeile einer Arbeitsliste (Wareneingang, Prüfung, Aufbereitung).
@@ -42,7 +43,7 @@ export function WorkRow({
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <Link
               href={`/units/${unit.id}`}
-              className="rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-accent focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+              className={cn("rounded font-mono text-sm font-medium text-foreground transition-colors hover:text-skope-accent", FOCUS_RING)}
             >
               {unit.unitNumber}
             </Link>
@@ -100,7 +101,7 @@ export function MiniProgress({
       <div className="h-1 w-24 overflow-hidden rounded-full bg-surface-track">
         <div
           className={cn(
-            "h-full rounded-full transition-[width] duration-300",
+            "h-full rounded-full transition-[width] duration-base",
             tone === "warn"
               ? "bg-state-warn"
               : tone === "ready"

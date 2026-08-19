@@ -123,7 +123,6 @@ export function ProposalsView() {
           <>
             <Button
               variant="outline"
-              className="h-10 gap-2 px-4"
               onClick={refresh}
               disabled={busy}
             >
@@ -131,7 +130,6 @@ export function ProposalsView() {
               Neu aufbauen
             </Button>
             <Button
-              className="h-10 gap-2 px-4"
               onClick={() => setAskApproval(true)}
               disabled={selected.length === 0 || busy}
             >
@@ -196,7 +194,6 @@ export function ProposalsView() {
         {selectable.length > 0 && (
           <Button
             variant="ghost"
-            className="h-10 px-3.5 text-sm"
             onClick={() =>
               setSelected(
                 allSelected ? [] : selectable.map((proposal) => proposal.id)
@@ -217,7 +214,7 @@ export function ProposalsView() {
             title="Nichts zur Freigabe"
             description="Sobald ein Artikel oder Gerät alle Voraussetzungen erfüllt, entsteht hier automatisch ein fertiger Vorschlag."
             action={
-              <Button className="h-10 px-4" onClick={refresh} disabled={busy}>
+              <Button onClick={refresh} disabled={busy}>
                 Liste neu aufbauen
               </Button>
             }
@@ -357,7 +354,7 @@ function ProposalRow({
             checked={checked}
             onChange={onToggle}
             aria-label={`${proposal.title} auswählen`}
-            className="size-4 accent-[var(--skope-accent,#7dd956)]"
+            className="size-4 accent-skope-accent"
           />
         </label>
       )}
@@ -369,7 +366,7 @@ function ProposalRow({
           className="size-12 shrink-0 rounded-lg border border-skope-line object-cover"
         />
       ) : (
-        <div className="grid size-12 shrink-0 place-items-center rounded-lg border border-dashed border-skope-line text-[11px] text-muted-foreground">
+        <div className="grid size-12 shrink-0 place-items-center rounded-lg border border-dashed border-skope-line type-micro text-muted-foreground">
           kein Bild
         </div>
       )}
@@ -402,14 +399,15 @@ function ProposalRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <Button variant="outline" className="h-9 px-3.5" onClick={onPreview}>
+        <Button variant="outline" size="sm" onClick={onPreview}>
           Vorschau
         </Button>
         {isOpen && (
           <>
             <Button
               variant="ghost"
-              className="size-9 p-0 text-muted-foreground hover:text-state-error"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-state-error"
               aria-label="Ablehnen"
               disabled={busy}
               onClick={reject}
@@ -428,7 +426,8 @@ function ProposalRow({
             */}
             <Button
               variant="outline"
-              className="h-9 gap-2 border-skope-accent/45 px-3.5 text-skope-accent hover:border-skope-accent/70 hover:bg-skope-accent/10 hover:text-skope-accent"
+              size="sm"
+              className="border-skope-accent/45 px-3.5 text-skope-accent hover:border-skope-accent/70 hover:bg-skope-accent/10 hover:text-skope-accent"
               disabled={busy}
               onClick={approve}
             >
@@ -479,7 +478,6 @@ function PreviewDialog({
         <>
           <Button
             variant="outline"
-            className="h-10 gap-2 px-4"
             onClick={copy}
           >
             {copied ? (
@@ -489,7 +487,7 @@ function PreviewDialog({
             )}
             {copied ? "Kopiert" : "Text kopieren"}
           </Button>
-          <Button className="h-10 px-4" onClick={() => onOpenChange(false)}>
+          <Button onClick={() => onOpenChange(false)}>
             Schließen
           </Button>
         </>

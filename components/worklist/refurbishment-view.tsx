@@ -150,7 +150,6 @@ export function RefurbishmentView() {
                   action={
                     !unit.cleaning.done && open.length === 0 ? (
                       <Button
-                        className="h-10 px-3.5"
                         disabled={cleaningId === unit.id}
                         onClick={async () => {
                           setCleaningId(unit.id)

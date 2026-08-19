@@ -123,7 +123,6 @@ export function StocktakeView() {
         description="Zählmengen eintragen und Differenzen als Korrektur buchen. Serialisierte Artikel zählt man am Gerät, nicht in dieser Liste."
         actions={
           <Button
-            className="h-10 gap-2 px-4"
             disabled={deviations.length === 0 || busy}
             onClick={() => setAskBooking(true)}
           >

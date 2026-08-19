@@ -113,7 +113,7 @@ export function TabBar<K extends string>({
               onClick={() => onChange(entry.key)}
               onKeyDown={(event) => onKeyDown(event, index)}
               className={cn(
-                "group relative flex h-11 items-center gap-2 px-3.5 text-sm whitespace-nowrap transition-colors duration-150",
+                "group relative flex h-11 items-center gap-2 px-3.5 text-sm whitespace-nowrap transition-colors duration-fast",
                 FOCUS_RING,
                 active
                   ? "font-medium text-foreground"
@@ -124,7 +124,7 @@ export function TabBar<K extends string>({
               {badge !== null && (
                 <span
                   className={cn(
-                    "grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-medium tabular-nums transition-colors duration-150",
+                    "grid h-5 min-w-5 place-items-center rounded-full px-1.5 type-micro font-medium transition-colors duration-fast",
                     badge.tone === "error"
                       ? "bg-state-error/15 text-state-error"
                       : badge.tone === "warn"

@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop-Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 hidden shrink-0 flex-col border-r border-skope-line bg-sidebar transition-[width] duration-300 ease-out lg:flex",
+          "fixed inset-y-0 left-0 z-40 hidden shrink-0 flex-col border-r border-skope-line bg-sidebar transition-[width] duration-base ease-out lg:flex",
           collapsed ? "w-[4.5rem]" : "w-64"
         )}
       >
@@ -98,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             "absolute top-[3.25rem] -right-[1.125rem] z-50 grid size-9 place-items-center rounded-full",
             "group border border-skope-line-strong bg-sidebar text-foreground",
             "shadow-[0_2px_10px_rgba(0,0,0,0.45)]",
-            "transition-[color,border-color,transform] duration-150",
+            "transition-[color,border-color,transform] duration-fast",
             "hover:scale-105 hover:border-skope-accent/60 hover:text-skope-accent",
             FOCUS_RING
           )}
@@ -109,12 +109,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             allein die Linie darunter durchschimmern ließe.
           */}
           <span
-            className="absolute inset-px rounded-full bg-sidebar transition-colors duration-150 group-hover:bg-skope-accent/12"
+            className="absolute inset-px rounded-full bg-sidebar transition-colors duration-fast group-hover:bg-skope-accent/12"
             aria-hidden
           />
           <ChevronLeft
             className={cn(
-              "relative size-4 transition-transform duration-300 ease-out",
+              "relative size-4 transition-transform duration-base ease-out",
               collapsed && "rotate-180"
             )}
             aria-hidden
@@ -172,11 +172,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             aria-label="Navigation schließen"
             onClick={() => setDrawerOpen(false)}
-            className="absolute inset-0 bg-black/70 backdrop-blur-[2px] duration-200 animate-in fade-in"
+            className="absolute inset-0 bg-black/70 backdrop-blur-[2px] duration-fast animate-in fade-in"
           />
           <div
             ref={drawerRef}
-            className="absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col border-r border-skope-line bg-sidebar duration-300 animate-in slide-in-from-left"
+            className="absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col border-r border-skope-line bg-sidebar duration-base animate-in slide-in-from-left"
           >
             <SidebarContent
               collapsed={false}
@@ -194,7 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Inhalt */}
       <div
         className={cn(
-          "flex min-h-svh flex-col transition-[padding] duration-300 ease-out",
+          "flex min-h-svh flex-col transition-[padding] duration-base ease-out",
           collapsed ? "lg:pl-[4.5rem]" : "lg:pl-64"
         )}
       >
@@ -258,7 +258,7 @@ function SidebarContent({
         <Link
           href="/dashboard"
           onClick={onNavigate}
-          className="flex min-w-0 items-center justify-center rounded-md focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none"
+          className={cn("flex min-w-0 items-center justify-center rounded-md", FOCUS_RING)}
           aria-label="SKOPE Cockpit — zum Dashboard"
         >
           <SkopeLogo height={collapsed ? 34 : 46} compact={collapsed} />
@@ -284,7 +284,7 @@ function SidebarContent({
           <div className="mb-4 px-2">
             <Button
               onClick={onCreate}
-              className="h-10 w-full justify-center gap-2 font-medium"
+              className="w-full justify-center font-medium"
             >
               <Plus className="size-4" />
               Gerät erfassen
@@ -296,7 +296,7 @@ function SidebarContent({
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
               {!collapsed && (
-                <p className="mb-2 px-3 text-[11px] font-medium tracking-[0.14em] text-muted-foreground/70 uppercase">
+                <p className="mb-2 px-3 type-label text-muted-foreground/70">
                   {group.label}
                 </p>
               )}
@@ -389,8 +389,8 @@ function NavLink({
       }
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors duration-150",
-        "focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
+        "group relative flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors duration-fast",
+        FOCUS_RING,
         active
           ? "bg-skope-accent/10 font-medium text-skope-accent"
           : "text-sidebar-foreground hover:bg-surface-raised hover:text-foreground",
@@ -409,7 +409,7 @@ function NavLink({
       {!collapsed && badge !== undefined && badge > 0 && (
         <span
           className={cn(
-            "grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[11px] font-medium tabular-nums",
+            "grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 type-micro font-medium",
             item.badge === "failedSyncs" || item.badge === "reorder"
               ? "bg-state-error/15 text-state-error"
               : "bg-surface-track text-muted-foreground"
@@ -501,7 +501,7 @@ function Topbar({
         >
           <Search className="size-4" />
         </Link>
-        <Button onClick={onCreate} className="h-10 gap-2 px-3.5">
+        <Button onClick={onCreate} >
           <Plus className="size-4" />
           <span className="hidden sm:inline">Gerät</span>
         </Button>

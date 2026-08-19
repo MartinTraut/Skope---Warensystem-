@@ -15,6 +15,7 @@ import {
   PageHeader,
 } from "@/components/skope/primitives"
 import { StatusPill } from "@/components/skope/status-pill"
+import { FOCUS_RING } from "@/components/skope/focus"
 import { Button } from "@/components/ui/button"
 import {
   useArticleViews,
@@ -242,7 +243,7 @@ export function TeardownView() {
                 action={
                   <Button
                     variant="outline"
-                    className="h-9 gap-2 px-3.5"
+                    size="sm"
                     disabled={partOptions.length === 0}
                     onClick={() =>
                       setLines((current) => [
@@ -337,7 +338,8 @@ export function TeardownView() {
                           )}
                           <Button
                             variant="ghost"
-                            className="size-10 shrink-0 p-0 text-muted-foreground hover:text-state-error"
+                            size="icon"
+                            className="text-muted-foreground hover:text-state-error"
                             aria-label="Zeile entfernen"
                             onClick={() =>
                               setLines((current) =>
@@ -405,8 +407,8 @@ export function TeardownView() {
                         type="button"
                         onClick={() => setDistribution(entry)}
                         className={cn(
-                          "w-full rounded-lg border px-3.5 py-3 text-left transition-colors duration-150",
-                          "focus-visible:ring-3 focus-visible:ring-skope-accent/25 focus-visible:outline-none",
+                          "w-full rounded-lg border px-3.5 py-3 text-left transition-colors duration-fast",
+                          FOCUS_RING,
                           active
                             ? "border-skope-accent/50 bg-skope-accent/8"
                             : "border-skope-line bg-surface-sunken hover:border-skope-line-strong"
@@ -452,7 +454,8 @@ export function TeardownView() {
                 )}
 
                 <Button
-                  className="h-11 w-full"
+                  size="lg"
+                  className="w-full"
                   disabled={!sourceUnit || problem !== null || busy}
                   onClick={book}
                 >

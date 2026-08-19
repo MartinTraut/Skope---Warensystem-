@@ -427,7 +427,7 @@ function StepIndicator({ current }: { current: StepKey }) {
             >
               <span
                 className={cn(
-                  "grid size-4 shrink-0 place-items-center rounded-full text-[11px] font-medium",
+                  "grid size-4 shrink-0 place-items-center rounded-full type-micro font-medium",
                   active
                     ? "bg-skope-accent text-[#14100a]"
                     : done
@@ -511,7 +511,6 @@ function CategoryStep({
       </PanelBody>
       <div className="flex justify-end border-t border-skope-line px-4 py-4 sm:px-5">
         <Button
-          className="h-10 gap-2 px-4"
           disabled={!categoryId}
           onClick={onNext}
         >
@@ -580,7 +579,7 @@ function FileStep({
               }
             }}
             className={cn(
-              "flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-12 text-center transition-colors duration-200",
+              "flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-12 text-center transition-colors duration-fast",
               dragOver
                 ? "border-skope-accent/60 bg-skope-accent/8"
                 : "border-skope-line-strong hover:border-skope-accent/35 hover:bg-surface-sunken",
@@ -609,7 +608,7 @@ function FileStep({
           </p>
         </PanelBody>
         <div className="flex justify-start border-t border-skope-line px-4 py-4 sm:px-5">
-          <Button variant="outline" className="h-10 gap-2 px-4" onClick={onBack}>
+          <Button variant="outline"  onClick={onBack}>
             <ArrowLeft className="size-4" />
             Bereich ändern
           </Button>
@@ -631,7 +630,7 @@ function FileStep({
             Zeile ohne Bezeichnung, damit die Fehlerbehandlung sichtbar wird.
           </p>
           <Button
-            className="mt-4 h-10 w-full px-4"
+            className="mt-4 w-full"
             onClick={onLoadDemo}
             disabled={loading}
           >
@@ -725,7 +724,7 @@ function MappingStep({
           !blocked ? (
             <Button
               variant="outline"
-              className="h-9 px-3.5"
+              size="sm"
               onClick={() => setManualEdit(!manualEdit)}
             >
               {manualEdit ? "Fertig" : "Zuordnung ändern"}
@@ -1111,10 +1110,10 @@ function DoneStep({
           }
           action={
             <div className="flex flex-wrap justify-center gap-2">
-              <Button className="h-10 px-4" onClick={onOpenTarget}>
+              <Button onClick={onOpenTarget}>
                 {serialized ? "Zum Wareneingang" : "Zum Bestand"}
               </Button>
-              <Button variant="outline" className="h-10 px-4" onClick={onRestart}>
+              <Button variant="outline"  onClick={onRestart}>
                 Weitere Datei importieren
               </Button>
             </div>
@@ -1144,11 +1143,11 @@ function WizardFooter({
 }) {
   return (
     <div className="flex flex-col-reverse gap-2 border-t border-skope-line px-4 py-4 sm:flex-row sm:justify-between sm:px-5">
-      <Button variant="outline" className="h-10 gap-2 px-4" onClick={onBack}>
+      <Button variant="outline"  onClick={onBack}>
         <ArrowLeft className="size-4" />
         {backLabel}
       </Button>
-      <Button className="h-10 gap-2 px-4" onClick={onNext} disabled={nextDisabled}>
+      <Button onClick={onNext} disabled={nextDisabled}>
         {nextLabel}
         <ArrowRight className="size-4" />
       </Button>
@@ -1197,7 +1196,7 @@ function Th({
     <th
       scope="col"
       className={cn(
-        "px-3 py-2.5 text-[11px] font-medium tracking-[0.1em] text-muted-foreground/80 uppercase",
+        "px-3 py-2.5 type-label text-muted-foreground/80",
         align === "right" && "text-right",
         className
       )}

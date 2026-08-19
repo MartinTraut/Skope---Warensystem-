@@ -251,13 +251,12 @@ export function InventoryView() {
           <>
             <Button
               variant="outline"
-              className="h-10 gap-2 px-4"
               onClick={() => setUnitOpen(true)}
             >
               <Plus className="size-4" />
               Gerät erfassen
             </Button>
-            <Button className="h-10 gap-2 px-4" onClick={() => setArticleOpen(true)}>
+            <Button onClick={() => setArticleOpen(true)}>
               <Plus className="size-4" />
               Artikel anlegen
             </Button>
@@ -314,7 +313,7 @@ export function InventoryView() {
               <SlidersHorizontal className="size-4" />
               Filter
               {activeFilters > 0 && (
-                <span className="grid size-4 place-items-center rounded-full bg-skope-accent text-[11px] font-medium text-[#14100a]">
+                <span className="grid size-4 place-items-center rounded-full bg-skope-accent type-micro font-medium text-[#14100a]">
                   {activeFilters}
                 </span>
               )}
@@ -411,13 +410,12 @@ export function InventoryView() {
               query || activeFilters > 0 ? (
                 <Button
                   variant="outline"
-                  className="h-10 px-4"
                   onClick={resetFilters}
                 >
                   Filter zurücksetzen
                 </Button>
               ) : (
-                <Button className="h-10 px-4" onClick={() => setArticleOpen(true)}>
+                <Button onClick={() => setArticleOpen(true)}>
                   Artikel anlegen
                 </Button>
               )
