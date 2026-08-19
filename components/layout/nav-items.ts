@@ -1,6 +1,7 @@
 import {
   Activity,
   ArrowLeftRight,
+  Boxes,
   ClipboardCheck,
   FolderTree,
   LayoutDashboard,
@@ -70,6 +71,12 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Package,
         badge: "reorder",
         description: "Alle Artikel mit Menge, Wert und Lagerplatz",
+      },
+      {
+        href: "/units",
+        label: "Geräte",
+        icon: Boxes,
+        description: "Jedes Einzelstück mit Seriennummer, Status und Lagerplatz",
       },
       {
         href: "/inbound",

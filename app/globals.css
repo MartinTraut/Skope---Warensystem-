@@ -516,6 +516,34 @@
     transition-timing-function: var(--motion-ease);
 }
 
+/*
+ * Druck: nur das Etikett.
+ *
+ * Ohne diese Regel druckt der Browser die gesamte Oberfläche — dunkler Grund,
+ * Navigation, Schaltflächen — und die Etiketten stehen irgendwo dazwischen.
+ * Ausgeblendet wird über `visibility`, nicht über `display`: So bleibt die
+ * Position des Bogens im Dokument erhalten.
+ */
+@media print {
+    body:has(#skope-label-sheet) * {
+        visibility: hidden;
+    }
+
+    #skope-label-sheet,
+    #skope-label-sheet * {
+        visibility: visible;
+    }
+
+    #skope-label-sheet {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        border: 0;
+        background: #ffffff;
+    }
+}
+
 @layer utilities {
     /* Reveal beim Eintreten. Kurz, ruhig, nicht verspielt. */
     @keyframes skope-rise {

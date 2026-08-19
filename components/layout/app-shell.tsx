@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronLeft, Menu, Plus, Search, X } from "lucide-react"
+import { ChevronLeft, Menu, Plus, ScanLine, Search, X } from "lucide-react"
 
 import { SkopeLogo } from "@/components/brand/skope-logo"
 import { NAV_GROUPS, SETTINGS_ITEM, findNavItem, type NavItem } from "./nav-items"
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { DemoTag } from "@/components/skope/primitives"
 import { FOCUS_RING } from "@/components/skope/focus"
+import { ScanDialog } from "@/components/shared/scan-dialog"
 import { NewUnitDialog } from "@/components/units/new-unit-dialog"
 
 /**
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setCollapsed = useCockpitStore((state) => state.setSidebarCollapsed)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [scanOpen, setScanOpen] = useState(false)
 
   const drawerRef = useRef<HTMLDivElement>(null)
   const openerRef = useRef<HTMLButtonElement>(null)
@@ -46,6 +48,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
         event.preventDefault()
         setCollapsed(!collapsed)
+      }
+      // Cmd/Strg + K öffnet den Scanner. Wer mit dem Handscanner arbeitet,
+      // hat keine Hand frei, um erst eine Schaltfläche zu suchen.
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setScanOpen(true)
       }
     }
     window.addEventListener("keydown", handleKey)
@@ -202,6 +210,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           openerRef={openerRef}
           onOpenDrawer={() => setDrawerOpen(true)}
           onCreate={() => setCreateOpen(true)}
+          onScan={() => setScanOpen(true)}
         />
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-[100rem]">{children}</div>
@@ -209,6 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <NewUnitDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <ScanDialog open={scanOpen} onOpenChange={setScanOpen} />
     </div>
   )
 }
@@ -443,10 +453,12 @@ function Topbar({
   openerRef,
   onOpenDrawer,
   onCreate,
+  onScan,
 }: {
   openerRef: React.RefObject<HTMLButtonElement | null>
   onOpenDrawer: () => void
   onCreate: () => void
+  onScan: () => void
 }) {
   const pathname = usePathname()
   const current = findNavItem(pathname)
@@ -501,7 +513,20 @@ function Topbar({
         >
           <Search className="size-4" />
         </Link>
-        <Button onClick={onCreate} >
+        {/*
+          Der Scanner sitzt im Kopf und nicht auf einer Unterseite: Gescannt
+          wird von überall aus, meistens mit einem Karton in der anderen Hand.
+        */}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Code scannen"
+          title="Code scannen · ⌘K"
+          onClick={onScan}
+        >
+          <ScanLine className="size-4" />
+        </Button>
+        <Button onClick={onCreate}>
           <Plus className="size-4" />
           <span className="hidden sm:inline">Gerät</span>
         </Button>

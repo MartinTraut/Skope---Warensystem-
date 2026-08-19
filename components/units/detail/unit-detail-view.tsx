@@ -2,12 +2,13 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Pencil } from "lucide-react"
+import { ArrowLeft, Pencil, Tag } from "lucide-react"
 
 import { SaleBadge, WorkflowBadge } from "@/components/shared/badges"
 import { EditUnitDialog } from "../edit-unit-dialog"
 import { MarkAsSoldDialog } from "../mark-as-sold-dialog"
 import { WriteOffDialog } from "../write-off-dialog"
+import { LabelDialog } from "@/components/shared/label-dialog"
 import { TabChannels } from "./tab-channels"
 import { TabImages } from "./tab-images"
 import { TabInspection } from "./tab-inspection"
@@ -57,6 +58,7 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
   const [editOpen, setEditOpen] = useState(false)
   const [soldOpen, setSoldOpen] = useState(false)
   const [writeOffOpen, setWriteOffOpen] = useState(false)
+  const [labelOpen, setLabelOpen] = useState(false)
 
   if (!hydrated) {
     return (
@@ -126,6 +128,15 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
             <Pencil className="size-4" />
             Bearbeiten
           </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Etikett drucken"
+            title="Etikett drucken"
+            onClick={() => setLabelOpen(true)}
+          >
+            <Tag className="size-4" />
+          </Button>
           {unit.saleStatus !== "VERKAUFT" && (
             <>
               <Button
@@ -191,6 +202,13 @@ export function UnitDetailView({ unitId }: { unitId: string }) {
         unit={unit}
         open={writeOffOpen}
         onOpenChange={setWriteOffOpen}
+      />
+      <LabelDialog
+        open={labelOpen}
+        onOpenChange={setLabelOpen}
+        title={article ? unitLabel(article, unit) : unit.unitNumber}
+        lines={[unit.serialNumber, unit.variant].filter(Boolean)}
+        code={unit.unitNumber}
       />
     </div>
   )

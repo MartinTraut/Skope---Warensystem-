@@ -2,9 +2,18 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, ArrowLeftRight, Minus, Pencil, Plus, Tag } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  Barcode as BarcodeIcon,
+  Minus,
+  Pencil,
+  Plus,
+  Tag,
+} from "lucide-react"
 
 import { ConditionBadge, StockModeBadge } from "@/components/shared/badges"
+import { LabelDialog } from "@/components/shared/label-dialog"
 import { TabBar, type TabBadge } from "@/components/skope/tab-bar"
 import { ImageGallery } from "@/components/shared/image-gallery"
 import { EditArticleDialog } from "../edit-article-dialog"
@@ -48,6 +57,7 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
   const view = useArticleView(articleId)
   const [tab, setTab] = useState<TabKey>("overview")
   const [editOpen, setEditOpen] = useState(false)
+  const [labelOpen, setLabelOpen] = useState(false)
   const [receiveOpen, setReceiveOpen] = useState(false)
   const [issueOpen, setIssueOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
@@ -131,6 +141,19 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
             <Pencil className="size-4" />
             Bearbeiten
           </Button>
+          {/*
+            Etikett für das Fach: Am Regal steht sonst nichts, was das System
+            kennt — die Zuordnung lebt im Kopf dessen, der eingeräumt hat.
+          */}
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Etikett drucken"
+            title="Etikett drucken"
+            onClick={() => setLabelOpen(true)}
+          >
+            <BarcodeIcon className="size-4" />
+          </Button>
           {isBulk && (
             <>
               <Button
@@ -209,6 +232,13 @@ export function ArticleDetailView({ articleId }: { articleId: string }) {
         article={article}
         open={editOpen}
         onOpenChange={setEditOpen}
+      />
+      <LabelDialog
+        open={labelOpen}
+        onOpenChange={setLabelOpen}
+        title={articleLabel(article)}
+        lines={[article.mpn, article.ean].filter(Boolean)}
+        code={article.sku}
       />
       {isBulk && (
         <>
